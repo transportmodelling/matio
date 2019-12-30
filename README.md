@@ -18,3 +18,6 @@ The following formats are supported by the matio-library:
  -	The binary 4G-format that is being used within the national transport models of Flanders and the Netherlands.
 
 Support for other formats can be added by registering the format at the global MatrixFormats-object.
+
+# Dependencies
+Before you can compile this library, you will need to clone the https://github.com/transportmodelling/Utils repository, and then add it to your Delphi Library path.
