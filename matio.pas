@@ -107,6 +107,8 @@ Type
     Procedure SetMatrixLabels(const Matrix: Integer; const MatrixLabel: String);
     Procedure Read(const CurrentRow: Integer; const Rows: TCustomMatrixRows); overload; virtual; abstract;
   public
+    Class Function HasFormat(const Header: TBytes): Boolean; virtual;
+  public
     Constructor Create(const Properties: TPropertySet); overload; virtual; abstract;
     Procedure Read(const Row: TFloat64MatrixRow); overload;
     Procedure Read(const Row: TFloat32MatrixRow); overload;
@@ -296,6 +298,11 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
+
+Class Function TMatrixReader.HasFormat(const Header: TBytes): Boolean;
+begin
+  Result := false;
+end;
 
 Constructor TMatrixReader.Create(const FileName: String);
 begin

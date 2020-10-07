@@ -29,6 +29,7 @@ Type
     Procedure Read(const CurrentRow: Integer; const Rows: TCustomMatrixRows); override;
   public
     Class Function Format: String; override;
+    Class Function HasFormat(const Header: TBytes): Boolean; override;
   public
     Constructor Create(const Properties: TPropertySet); overload; override;
     Constructor Create(const FileName: String); overload;
@@ -79,6 +80,20 @@ implementation
 Class Function T4GMatrixReader.Format: String;
 begin
   Result := '4g';
+end;
+
+Class Function T4GMatrixReader.HasFormat(const Header: TBytes): Boolean;
+begin
+  if Length(Header) >= 4 then
+    if TEncoding.ASCII.GetString(Copy(Header,0,2)) = '4G' then
+      if (Header[2] = 20) and (Header[3] = 1) then
+        Result := true
+      else
+        Result := false
+    else
+      Result := false
+  else
+    Result := false;
 end;
 
 Constructor T4GMatrixReader.Create(const Properties: TPropertySet);

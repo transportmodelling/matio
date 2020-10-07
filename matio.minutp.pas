@@ -33,6 +33,7 @@ Type
     Class Procedure AppendFormatProperties(const [ref] Properties: TPropertySet); override;
   public
     Class Function Format: String; override;
+    Class Function HasFormat(const Header: TBytes): Boolean; override;
   public
     Constructor Create(const Properties: TPropertySet); overload; override;
     Constructor Create(Const FileName: TFileName; Const Precision: Byte = 0); overload;
@@ -73,9 +74,24 @@ begin
   Result := 'mtp';
 end;
 
+Class Function TMinutpMatrixReader.HasFormat(const Header: TBytes): Boolean;
+begin
+  if Length(Header) >= 74 then
+  begin
+    if TEncoding.ASCII.GetString(Copy(Header,66,7)) = ' MATRIX' then
+      if Header[73] = 45 then
+        Result := true
+      else
+        Result := false
+    else
+      Result := false;
+  end else
+    Result := false;
+end;
+
 Class Procedure TMinutpMatrixReader.AppendFormatProperties(const [ref] Properties: TPropertySet);
 begin
-  Properties.Append(PrecisionProperty,'');
+  Properties.Append(PrecisionProperty,'0');
 end;
 
 Constructor TMinutpMatrixReader.Create(const Properties: TPropertySet);

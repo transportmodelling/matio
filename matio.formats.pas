@@ -28,7 +28,8 @@ Type
     Procedure RegisterFormat(const Format: TMatrixWriterFormat); overload;
     // Query registered formats
     Function RegisteredReaderFormats: TStringDynArray;
-    Function ReaderFormat(const Format: string): TMatrixReaderFormat;
+    Function ReaderFormat(const Format: string): TMatrixReaderFormat; overload;
+    Function ReaderFormat(const Header: TBytes): TMatrixReaderFormat; overload;
     Function RegisteredWriterFormats: TStringDynArray;
     Function WriterFormat(const Format: string): TMatrixWriterFormat;
     // Create matrix reader/writer
@@ -72,6 +73,17 @@ begin
   Result := nil;
   for var ReaderFormat := low(ReaderFormats) to high(ReaderFormats) do
   if SameText(ReaderFormats[ReaderFormat].Format,Format) then
+  begin
+    Result := ReaderFormats[ReaderFormat];
+    Break;
+  end;
+end;
+
+Function TMatrixFormats.ReaderFormat(const Header: TBytes): TMatrixReaderFormat;
+begin
+  Result := nil;
+  for var ReaderFormat := low(ReaderFormats) to high(ReaderFormats) do
+  if ReaderFormats[ReaderFormat].HasFormat(Header) then
   begin
     Result := ReaderFormats[ReaderFormat];
     Break;
