@@ -31,7 +31,7 @@ Type
     Class Function Format: String; override;
     Class Function HasFormat(const Header: TBytes): Boolean; override;
   public
-    Constructor Create(const Properties: TPropertySet); overload; override;
+    Constructor Create(const [ref] Properties: TPropertySet); overload; override;
     Constructor Create(const FileName: String); overload;
     Destructor Destroy; override;
   end;
@@ -61,7 +61,7 @@ Type
     Class Function Format: String; override;
     Class Function PropertyPickList(const PropertyName: string; out PickList: TStringDynArray): Boolean; override;
   public
-    Constructor Create(const Properties: TPropertySet;
+    Constructor Create(const [ref] Properties: TPropertySet;
                        const FileLabel: string;
                        const MatrixLabels: array of String;
                        const Size: Integer); overload; override;
@@ -96,7 +96,7 @@ begin
     Result := false;
 end;
 
-Constructor T4GMatrixReader.Create(const Properties: TPropertySet);
+Constructor T4GMatrixReader.Create(const [ref] Properties: TPropertySet);
 begin
   if SameText(Properties[FormatProperty],Format) then
     Create(Properties.ToPath(FileProperty))
@@ -211,7 +211,7 @@ begin
     Result := false;
 end;
 
-Constructor T4GMatrixWriter.Create(const Properties: TPropertySet;
+Constructor T4GMatrixWriter.Create(const [ref] Properties: TPropertySet;
                                    const FileLabel: string;
                                    const MatrixLabels: array of String;
                                    const Size: Integer);

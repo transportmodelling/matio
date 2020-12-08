@@ -19,6 +19,13 @@ Type
   TFloat64MatrixRow = array of Float64;
   TMatrixRow = TFloat64MatrixRow;
 
+  TMatrixRowHelper = record helper for TFloat64MatrixRow
+  public
+    Procedure Allocate(Count: Integer);
+    Function Count: Integer;
+    Function Total: Float64;
+  end;
+
   TCustomMatrixRows = Class
   private
     FCount,FSize: Integer;
@@ -82,9 +89,9 @@ Type
       FileProperty = 'file';
       FormatProperty = 'format';
     Class Function Format: String; virtual; abstract;
-    Class Function FormatProperties: TPropertySet;
-    Class Function FileProperties(const FileName: String): TPropertySet;
+    Class Function FormatProperties(ReadOnly: Boolean = true): TPropertySet;
     Class Function PropertyPickList(const PropertyName: string; out PickList: TStringDynArray): Boolean; virtual;
+    Class Function TidyProperties(const [ref] Properties: TPropertySet; ReadOnly: Boolean = true): TPropertySet;
   public
     Constructor Create;
     Destructor Destroy; override;
@@ -109,7 +116,7 @@ Type
   public
     Class Function HasFormat(const Header: TBytes): Boolean; virtual;
   public
-    Constructor Create(const Properties: TPropertySet); overload; virtual; abstract;
+    Constructor Create(const [ref] Properties: TPropertySet); overload; virtual; abstract;
     Procedure Read(const Row: TFloat64MatrixRow); overload;
     Procedure Read(const Row: TFloat32MatrixRow); overload;
     Procedure Read(const Rows: array of TFloat64MatrixRow); overload;
@@ -130,7 +137,7 @@ Type
     Class Var
       RoundToZeroThreshold: Float64;
   public
-    Constructor Create(const Properties: TPropertySet;
+    Constructor Create(const [ref] Properties: TPropertySet;
                        const FileLabel: string;
                        const MatrixLabels: array of String;
                        const Size: Integer); overload; virtual; abstract;
@@ -143,6 +150,24 @@ Type
 
 ////////////////////////////////////////////////////////////////////////////////
 implementation
+////////////////////////////////////////////////////////////////////////////////
+
+Procedure TMatrixRowHelper.Allocate(Count: Integer);
+begin
+  SetLength(Self,Count);
+end;
+
+Function TMatrixRowHelper.Count: Integer;
+begin
+  Result := Length(Self);
+end;
+
+Function TMatrixRowHelper.Total: Float64;
+begin
+  Result := 0.0;
+  for var Column := 0 to Count-1 do Result := Result + Self[Column];
+end;
+
 ////////////////////////////////////////////////////////////////////////////////
 
 Function TCustomMatrixRows.DoGetValues(Matrix,Column: Integer): Float64;
@@ -238,16 +263,10 @@ end;
 
 ////////////////////////////////////////////////////////////////////////////////
 
-Class Function TMatrixFiler.FormatProperties: TPropertySet;
+Class Function TMatrixFiler.FormatProperties(ReadOnly: Boolean = true): TPropertySet;
 begin
+  Result := TPropertySet.Create(ReadOnly);
   Result.Append(FileProperty,'');
-  Result.Append(FormatProperty,Format);
-  AppendFormatProperties(Result);
-end;
-
-Class Function TMatrixFiler.FileProperties(const FileName: String): TPropertySet;
-begin
-  Result.Append(FileProperty,FileName);
   Result.Append(FormatProperty,Format);
   AppendFormatProperties(Result);
 end;
@@ -260,6 +279,21 @@ begin
     PickList := [Format];
   end else
     Result := false;
+end;
+
+Class Function TMatrixFiler.TidyProperties(const [ref] Properties: TPropertySet; ReadOnly: Boolean = true): TPropertySet;
+Var
+  DefaultValue: String;
+begin
+  var Defaults := FormatProperties;
+  Result := TPropertySet.Create(ReadOnly);
+  for var Prop := 0 to Properties.Count-1 do
+  if SameText(Properties.Names[Prop],FileProperty) or SameText(Properties.Names[Prop],FormatProperty) then
+    Result.Append(Properties.Names[Prop],Properties.ValueFromIndex[Prop])
+  else
+    if Defaults.Contains(Properties.Names[Prop],DefaultValue) then
+    if not SameText(Properties.ValueFromIndex[Prop],DefaultValue) then
+    Result.Append(Properties.Names[Prop],Properties.ValueFromIndex[Prop])
 end;
 
 Constructor TMatrixFiler.Create;
@@ -284,9 +318,15 @@ begin
 end;
 
 Function TMatrixFiler.ExtendProperties(const [ref] Properties: TPropertySet): TPropertySet;
+Var
+  Value: String;
 begin
-  Result := Properties;
-  Result.Append(FormatProperties,true,true);
+  Result := FormatProperties(false);
+  for var Prop := 0 to Result.Count-1 do
+  begin
+    if Properties.Contains(Result.Names[Prop],Value) then
+    Result.ValueFromIndex[Prop] := Value;
+  end;
 end;
 
 Destructor TMatrixFiler.Destroy;

@@ -30,7 +30,7 @@ Type
     Class Function Format: String; override;
     Class Function PropertyPickList(const PropertyName: string; out PickList: TStringDynArray): Boolean; override;
   public
-    Constructor Create(const Properties: TPropertySet); overload; override;
+    Constructor Create(const [ref] Properties: TPropertySet); overload; override;
     Constructor Create(const FileName: String;
                        const Header: Boolean = true;
                        const Delimiter: TDelimiter = Tab;
@@ -65,7 +65,7 @@ Type
     Class Property RowLabel: String read FRowLabel write SetRowLabel;
     Class Property ColumnLabel: String read FColumnLabel write SetColumnLabel;
   public
-    Constructor Create(const Properties: TPropertySet;
+    Constructor Create(const [ref] Properties: TPropertySet;
                        const FileLabel: string;
                        const MatrixLabels: array of String;
                        const Size: Integer); overload; override;
@@ -149,7 +149,7 @@ begin
     Result := false;
 end;
 
-Constructor TTextMatrixReader.Create(const Properties: TPropertySet);
+Constructor TTextMatrixReader.Create(const [ref] Properties: TPropertySet);
 Var
   Header: Boolean;
   Delimiter: TDelimiter;
@@ -388,7 +388,7 @@ begin
     Result := false;
 end;
 
-Constructor TTextMatrixWriter.Create(const Properties: TPropertySet;
+Constructor TTextMatrixWriter.Create(const [ref] Properties: TPropertySet;
                                      const FileLabel: string;
                                      const MatrixLabels: array of String;
                                      const Size: Integer);

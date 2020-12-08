@@ -35,7 +35,7 @@ Type
     Class Function Format: String; override;
     Class Function HasFormat(const Header: TBytes): Boolean; override;
   public
-    Constructor Create(const Properties: TPropertySet); overload; override;
+    Constructor Create(const [ref] Properties: TPropertySet); overload; override;
     Constructor Create(Const FileName: TFileName; Const Precision: Byte = 0); overload;
   end;
 
@@ -56,7 +56,7 @@ Type
   public
     Class Function Format: String; override;
   public
-    Constructor Create(const Properties: TPropertySet;
+    Constructor Create(const [ref] Properties: TPropertySet;
                        const FileLabel: string;
                        const MatrixLabels: array of String;
                        const Size: Integer); overload; override;
@@ -94,7 +94,7 @@ begin
   Properties.Append(PrecisionProperty,'0');
 end;
 
-Constructor TMinutpMatrixReader.Create(const Properties: TPropertySet);
+Constructor TMinutpMatrixReader.Create(const [ref] Properties: TPropertySet);
 begin
   if SameText(Properties[FormatProperty],Format) then
   begin
@@ -224,7 +224,7 @@ begin
   Properties.Append(PrecisionProperty,'');
 end;
 
-Constructor TMinutpMatrixWriter.Create(const Properties: TPropertySet;
+Constructor TMinutpMatrixWriter.Create(const [ref] Properties: TPropertySet;
                                        const FileLabel: string;
                                        const MatrixLabels: array of String;
                                        const Size: Integer);
