@@ -6,7 +6,7 @@ MatrixReader and MatrixWriter-objects can be instantiated by providing a key-val
 (format specific) properties, for example:
 
 ```
-var Reader := MatrixFormats.CreateReader('file= matrix.dat; format = txt; delim=comma');
+var Reader := MatrixFormats.CreateReader('file=matrix.dat; format=txt; delim=comma');
 ```
 
 will create a MatrixReader-object that reads matrices from a comma-seprarated text file named 'matrix.dat'.
