@@ -15,16 +15,9 @@ Uses
   System.Classes,System.SysUtils,System.IOUtils,System.Types,PropSet;
 
 Type
-  TFloat32MatrixRow = array of Float32;
-  TFloat64MatrixRow = array of Float64;
+  TFloat32MatrixRow = TArray<Float32>;
+  TFloat64MatrixRow = TArray<Float64>;
   TMatrixRow = TFloat64MatrixRow;
-
-  TMatrixRowHelper = record helper for TFloat64MatrixRow
-  public
-    Procedure Allocate(Count: Integer);
-    Function Count: Integer;
-    Function Total: Float64;
-  end;
 
   TCustomMatrixRows = Class
   private
@@ -150,24 +143,6 @@ Type
 
 ////////////////////////////////////////////////////////////////////////////////
 implementation
-////////////////////////////////////////////////////////////////////////////////
-
-Procedure TMatrixRowHelper.Allocate(Count: Integer);
-begin
-  SetLength(Self,Count);
-end;
-
-Function TMatrixRowHelper.Count: Integer;
-begin
-  Result := Length(Self);
-end;
-
-Function TMatrixRowHelper.Total: Float64;
-begin
-  Result := 0.0;
-  for var Column := 0 to Count-1 do Result := Result + Self[Column];
-end;
-
 ////////////////////////////////////////////////////////////////////////////////
 
 Function TCustomMatrixRows.DoGetValues(Matrix,Column: Integer): Float64;
