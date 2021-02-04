@@ -67,6 +67,8 @@ Type
     FFileName: String;
     FCount,FSize,CurrentRow: Integer;
   strict protected
+    Class Procedure AppendFormatProperties(const [ref] Properties: TPropertySet); virtual;
+  strict protected
     Const
       BufferSize: Integer = 4096;
     Var
@@ -76,7 +78,6 @@ Type
     Procedure SetCount(Count: Integer); virtual;
     Procedure SetSize(Size: Integer);
     Function ExtendProperties(const [ref] Properties: TPropertySet): TPropertySet;
-    Class Procedure AppendFormatProperties(const [ref] Properties: TPropertySet); virtual;
   public
     Const
       FileProperty = 'file';
@@ -258,17 +259,24 @@ end;
 
 Class Function TMatrixFiler.TidyProperties(const [ref] Properties: TPropertySet; ReadOnly: Boolean = true): TPropertySet;
 Var
-  DefaultValue: String;
+  Value: String;
 begin
-  var Defaults := FormatProperties;
-  Result := TPropertySet.Create(ReadOnly);
-  for var Prop := 0 to Properties.Count-1 do
-  if SameText(Properties.Names[Prop],FileProperty) or SameText(Properties.Names[Prop],FormatProperty) then
-    Result.Append(Properties.Names[Prop],Properties.ValueFromIndex[Prop])
-  else
-    if Defaults.Contains(Properties.Names[Prop],DefaultValue) then
-    if not SameText(Properties.ValueFromIndex[Prop],DefaultValue) then
-    Result.Append(Properties.Names[Prop],Properties.ValueFromIndex[Prop])
+  if SameText(Properties[FormatProperty],Format) then
+  begin
+    var Defaults := FormatProperties;
+    Result := TPropertySet.Create(ReadOnly);
+    for var Prop := 0 to Defaults.Count-1 do
+    begin
+      var Name := Defaults.Names[Prop];
+      if SameText(Name,FileProperty) or SameText(Name,FormatProperty) then
+        Result.Append(Name,Properties[Name])
+      else
+        if Properties.Contains(Name,Value) then
+        if not SameText(Defaults.ValueFromIndex[Prop],Value) then
+        Result.Append(Name,Value)
+    end;
+  end else
+    raise Exception.Create('Invalid format-property');
 end;
 
 Constructor TMatrixFiler.Create;
