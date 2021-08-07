@@ -2,14 +2,13 @@
 
 The matio-library aims to facilitate the reading and writing of matrix files in transport models, in a way that allows to switch easily between matrix formats.
 
-MatrixReader and MatrixWriter-objects can be instantiated by providing a key-value string specifying the desired format and other 
-(format specific) properties, for example:
+MatrixReader and MatrixWriter-objects can be instantiated by providing a [key-value string specifying the desired format and other (format specific) properties](https://github.com/transportmodelling/matio/wiki/File-specification), for example:
 
 ```
 var Reader := MatrixFormats.CreateReader('file=matrix.dat; format=txt; delim=comma');
 ```
 
-will create a MatrixReader-object that reads matrices from a comma-seprarated text file named 'matrix.dat'.
+will create a MatrixReader-object that reads matrices from a comma-separated text file named 'matrix.dat'.
 
 The following formats are supported by the matio-library:
 
