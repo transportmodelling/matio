@@ -1,6 +1,6 @@
 # matio
 
-The matio-library aims to facilitate the reading and writing of matrix files in transport models, in a way that allows to switch easily between matrix formats.
+The matio-library aims to facilitate the reading and writing of matrix files in transport models, in a way that allows to switch easily between [matrix formats](https://github.com/transportmodelling/matio/wiki/File-formats).
 
 MatrixReader and MatrixWriter-objects can be instantiated by providing a [key-value string specifying the desired format and other (format specific) properties](https://github.com/transportmodelling/matio/wiki/File-specification), for example:
 
