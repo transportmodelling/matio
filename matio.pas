@@ -12,7 +12,7 @@ interface
 ////////////////////////////////////////////////////////////////////////////////
 
 Uses
-  System.Classes,System.SysUtils,System.IOUtils,System.Types,PropSet;
+  System.Classes, System.SysUtils, System.IOUtils, System.Types, PropSet, ArrayVal;
 
 Type
   TFloat32MatrixRow = TArray<Float32>;
@@ -47,6 +47,7 @@ Type
     Constructor Create; overload;
     Constructor Create(Count,Size: Integer); overload;
     Procedure Allocate(Count,Size: Integer);
+    Function RowValues(Matrix: Integer): TFloat64ArrayValues;
   end;
 
   TFloat32MatrixRows = Class(TCustomMatrixRows)
@@ -59,6 +60,7 @@ Type
     Constructor Create; overload;
     Constructor Create(Count,Size: Integer); overload;
     Procedure Allocate(Count,Size: Integer);
+    Function RowValues(Matrix: Integer): TFloat32ArrayValues;
   end;
 
   TMatrixFiler = Class
@@ -208,6 +210,11 @@ begin
   SetLength(FValues,Count,Size);
 end;
 
+Function TFloat64MatrixRows.RowValues(Matrix: Integer): TFloat64ArrayValues;
+begin
+  Result := TFloat64ArrayValues.Create(FValues[Matrix])
+end;
+
 ////////////////////////////////////////////////////////////////////////////////
 
 Constructor TFloat32MatrixRows.Create;
@@ -235,6 +242,11 @@ Procedure TFloat32MatrixRows.Allocate(Count,Size: Integer);
 begin
   Init(Count,Size);
   SetLength(FValues,Count,Size);
+end;
+
+Function TFloat32MatrixRows.RowValues(Matrix: Integer): TFloat32ArrayValues;
+begin
+  Result := TFloat32ArrayValues.Create(FValues[Matrix])
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
