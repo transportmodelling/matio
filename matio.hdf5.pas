@@ -120,6 +120,8 @@ Type
                        const MatrixLabels: array of String;
                        const Size: Integer); overload;
   public
+    Class Constructor Create;
+  public
     Destructor Destroy; override;
   end;
 
@@ -393,6 +395,12 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
+
+Class Constructor THdf5MatrixWriter.Create;
+begin
+  var FileName := ExtractFileDir(Paramstr(0)) + '\hdf5.dll';
+  if FileExists(FileName) then THdf5Dll.Path := FileName;
+end;
 
 Constructor THdf5MatrixWriter.Create(const FileName,FileLabel: string;
                                      const MatrixLabels: array of String;
