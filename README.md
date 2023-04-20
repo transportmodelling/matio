@@ -25,6 +25,7 @@ The following formats are supported by the matio-library:
 
  -	Text format (various encodings and separators)
  -	The binary Minutp-format that can be used within Citilab's CUBE
+ -  [Open Matrix Format (omx)](https://github.com/osPlanning/omx)
  -	The binary 4G-format that is being used within the national transport models of Flanders and the Netherlands.
 
 Support for other formats can be added by registering the format at the global MatrixFormats-object.
