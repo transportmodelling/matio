@@ -12,7 +12,7 @@ interface
 ////////////////////////////////////////////////////////////////////////////////
 
 Uses
-  System.SysUtils,System.Types,PropSet,matio,matio.text,matio.gen4,matio.minutp;
+  SysUtils, Types, PropSet, matio, matio.text, matio.gen4, matio.minutp, matio.hdf5.omx;
 
 Type
   TMatrixReaderFormat = Class of TMatrixReader;
@@ -114,10 +114,12 @@ begin
   var Format := Properties[TMatrixFiler.FormatProperty];
   for var ReaderFormat := low(ReaderFormats) to high(ReaderFormats) do
   if SameText(ReaderFormats[ReaderFormat].Format,Format) then
+  if ReaderFormats[ReaderFormat].Available then
   begin
     Result := ReaderFormats[ReaderFormat].Create(Properties);
     Break;
-  end;
+  end else
+    raise Exception.Create(Format+'-format unavailable');
 end;
 
 Function TMatrixFormats.CreateWriter(const [ref] Properties: TPropertySet;
@@ -129,10 +131,12 @@ begin
   var Format := Properties[TMatrixFiler.FormatProperty];
   for var WriterFormat := low(WriterFormats) to high(WriterFormats) do
   if SameText(WriterFormats[WriterFormat].Format,Format) then
+  if WriterFormats[WriterFormat].Available then
   begin
     Result := WriterFormats[WriterFormat].Create(Properties,FileLabel,MatrixLabels,Size);
     Break;
-  end;
+  end else
+    raise Exception.Create(Format+'-format unavailable');
 end;
 
 Initialization
@@ -142,4 +146,5 @@ Initialization
   MatrixFormats.RegisterFormat(TMinutpMatrixWriter);
   MatrixFormats.RegisterFormat(T4GMatrixReader);
   MatrixFormats.RegisterFormat(T4GMatrixWriter);
+  MatrixFormats.RegisterFormat(TOMXMatrixWriter);
 end.
