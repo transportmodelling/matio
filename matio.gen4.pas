@@ -16,12 +16,11 @@ Uses
   matio,matio.gen4.float16;
 
 Type
-  T4GPrecision = (pcFloat16,pcFloat32,pcFloat64);
   T4GCompression = (cpNone,cpGZip);
 
   T4GMatrixReader = Class(TMatrixReader)
   private
-    FilePrecision: T4GPrecision;
+    FilePrecision: TFloatType;
     DecompressionStream: TStream;
     BinaryReader: TBinaryReader;
     Function ReadFloat16: Float32;
@@ -40,11 +39,10 @@ Type
   private
     Const
       PrecisionProperty = 'prec';
-      PrecisionOptions: array[T4GPrecision] of String = ('float16','float32','float64');
       CompressionProperty = 'compress';
       CompressionOptions: array[T4GCompression] of String = ('none','gzip');
     Var
-      FilePrecision: T4GPrecision;
+      FilePrecision: TFloatType;
       CompressionStream: TStream;
       BinaryWriter: TBinaryWriter;
     Procedure WriteChar(Value: Char);
@@ -68,7 +66,7 @@ Type
     Constructor Create(const FileName,FileLabel: String;
                        const MatrixLabels: array of String;
                        const Size: Integer;
-                       const Precision: T4GPrecision = pcFloat32;
+                       const Precision: TFloatType = ftFloat32;
                        const Compression: T4GCompression = cpGzip); overload;
     Destructor Destroy; override;
   end;
@@ -116,7 +114,7 @@ begin
     and (HeaderReader.ReadByte = 20) and (HeaderReader.ReadByte = 1) then
     begin
       // Read file header
-      FilePrecision := T4GPrecision(HeaderReader.ReadByte);
+      FilePrecision := TFloatType(HeaderReader.ReadByte);
       FileCompression := T4GCompression(HeaderReader.ReadByte);
       SetCount(HeaderReader.ReadByte);
       SetSize(HeaderReader.ReadUInt16);
@@ -158,13 +156,13 @@ Procedure T4GMatrixReader.Read(const CurrentRow: Integer; const Rows: TCustomMat
 begin
   if CurrentRow < Size then
     case FilePrecision of
-      pcFloat16: for var Mtrx := 0 to Count-1 do
+      ftFloat16: for var Mtrx := 0 to Count-1 do
                  for var Col := 0 to Size-1 do
                  Rows[Mtrx,Col] := ReadFloat16;
-      pcFloat32: for var Mtrx := 0 to Count-1 do
+      ftFloat32: for var Mtrx := 0 to Count-1 do
                  for var Col := 0 to Size-1 do
                  Rows[Mtrx,Col] := BinaryReader.ReadSingle;
-      pcFloat64: for var Mtrx := 0 to Count-1 do
+      ftFloat64: for var Mtrx := 0 to Count-1 do
                  for var Col := 0 to Size-1 do
                  Rows[Mtrx,Col] := BinaryReader.ReadDouble;
     end
@@ -190,7 +188,7 @@ end;
 
 Class Procedure T4GMatrixWriter.AppendFormatProperties(const [ref] Properties: TPropertySet);
 begin
-  Properties.Append(PrecisionProperty,PrecisionOptions[pcFloat32]);
+  Properties.Append(PrecisionProperty,PrecisionLabels[ftFloat32]);
   Properties.Append(CompressionProperty,CompressionOptions[cpGZip]);
 end;
 
@@ -201,7 +199,7 @@ begin
   if SameText(PropertyName,PrecisionProperty) then
   begin
     Result := true;
-    PickList := TStringArrayBuilder.Create(PrecisionOptions);
+    PickList := TStringArrayBuilder.Create(PrecisionLabels);
   end else
   if SameText(PropertyName,CompressionProperty) then
   begin
@@ -216,7 +214,7 @@ Constructor T4GMatrixWriter.Create(const [ref] Properties: TPropertySet;
                                    const MatrixLabels: array of String;
                                    const Size: Integer);
 Var
-  Precision: T4GPrecision;
+  Precision: TFloatType;
   Compression: T4GCompression;
 begin
   if SameText(Properties[FormatProperty],Format) then
@@ -225,8 +223,8 @@ begin
     // Set precision
     var ValidPrecision := false;
     var PrecisionPropertyValue := ExtendedProperties[PrecisionProperty];
-    for var Prec := low(PrecisionOptions) to high(PrecisionOptions) do
-    if SameText(PrecisionOptions[Prec],PrecisionPropertyValue) then
+    for var Prec := low(PrecisionLabels) to high(PrecisionLabels) do
+    if SameText(PrecisionLabels[Prec],PrecisionPropertyValue) then
     begin
       Precision := Prec;
       ValidPrecision := true;
@@ -253,7 +251,7 @@ end;
 Constructor T4GMatrixWriter.Create(const FileName,FileLabel: String;
                                    const MatrixLabels: array of String;
                                    const Size: Integer;
-                                   const Precision: T4GPrecision = pcFloat32;
+                                   const Precision: TFloatType = ftFloat32;
                                    const Compression: T4GCompression = cpGzip);
 begin
   inherited Create(FileName,Length(MatrixLabels),Size);
@@ -335,13 +333,13 @@ end;
 Procedure T4GMatrixWriter.Write(const CurrentRow: Integer; const Rows: TCustomMatrixRows);
 begin
   case FilePrecision of
-    pcFloat16: for var Mtrx := 0 to Count-1 do
+    ftFloat16: for var Mtrx := 0 to Count-1 do
                for var Col := 0 to Rows.Size-1 do
                WriteFloat16(Rows[Mtrx,Col]);
-    pcFloat32: for var Mtrx := 0 to Count-1 do
+    ftFloat32: for var Mtrx := 0 to Count-1 do
                for var Col := 0 to Rows.Size-1 do
                WriteFloat32(Rows[Mtrx,Col]);
-    pcFloat64: for var Mtrx := 0 to Count-1 do
+    ftFloat64: for var Mtrx := 0 to Count-1 do
                for var Col := 0 to Rows.Size-1 do
                WriteFloat64(Rows[Mtrx,Col]);
   end;

@@ -15,6 +15,8 @@ Uses
   System.Classes, System.SysUtils, System.IOUtils, System.Types, PropSet, ArrayVal;
 
 Type
+  TFloatType = (ftFloat16,ftFloat32,ftFloat64);
+
   TFloat32MatrixRow = TArray<Float32>;
   TFloat64MatrixRow = TArray<Float64>;
   TMatrixRow = TFloat64MatrixRow;
@@ -30,8 +32,8 @@ Type
     Function GetValues(Matrix,Column: Integer): Float64; virtual; abstract;
     Procedure SetValues(Matrix,Column: Integer; Value: Float64); virtual; abstract;
   public
-    Procedure GetRow(Matrix: Integer; var Row: TFloat64MatrixRow); overload;
     Procedure GetRow(Matrix: Integer; var Row: TFloat32MatrixRow); overload;
+    Procedure GetRow(Matrix: Integer; var Row: TFloat64MatrixRow); overload;
   public
     Property Count: Integer read FCount;
     Property Size: Integer read FSize;
@@ -148,6 +150,9 @@ Type
     Procedure Write(const Rows: TCustomMatrixRows); overload;
   end;
 
+Const
+  PrecisionLabels: array[TFloatType] of String = ('float16','float32','float64');
+
 ////////////////////////////////////////////////////////////////////////////////
 implementation
 ////////////////////////////////////////////////////////////////////////////////
@@ -173,14 +178,24 @@ begin
   FSize := Size;
 end;
 
-Procedure TCustomMatrixRows.GetRow(Matrix: Integer; var Row: TFloat64MatrixRow);
-begin
-  for var Column := 0 to Length(Row)-1 do Row[Column] := DoGetValues(Matrix,Column);
-end;
-
 Procedure TCustomMatrixRows.GetRow(Matrix: Integer; var Row: TFloat32MatrixRow);
 begin
-  for var Column := 0 to Length(Row)-1 do Row[Column] := DoGetValues(Matrix,Column);
+  if FSize < Length(Row) then
+  begin
+    for var Column := 0 to FSize-1 do Row[Column] := DoGetValues(Matrix,Column);
+    for var Column := FSize to Length(Row)-1 do Row[Column] := 0.0;
+  end else
+    for var Column := 0 to Length(Row)-1 do Row[Column] := DoGetValues(Matrix,Column);
+end;
+
+Procedure TCustomMatrixRows.GetRow(Matrix: Integer; var Row: TFloat64MatrixRow);
+begin
+  if FSize < Length(Row) then
+  begin
+    for var Column := 0 to FSize-1 do Row[Column] := DoGetValues(Matrix,Column);
+    for var Column := FSize to Length(Row)-1 do Row[Column] := 0.0;
+  end else
+    for var Column := 0 to Length(Row)-1 do Row[Column] := DoGetValues(Matrix,Column);
 end;
 
 Function TCustomMatrixRows.Total: Float64;
