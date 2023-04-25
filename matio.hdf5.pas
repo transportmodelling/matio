@@ -22,7 +22,7 @@ Type
   private
     DllHandle: THandle;
     FH5P_CLS_GROUP_CREATE_ID,FH5P_CLS_DATASET_CREATE_ID,
-    FH5T_C_S1,FH5T_NATIVE_INT,FH5T_NATIVE_DOUBLE: Int64;
+    FH5T_C_S1,FH5T_NATIVE_INT,FH5T_NATIVE_FLOAT,FH5T_NATIVE_DOUBLE: Int64;
     FH5open: Function: Integer; cdecl;
     FH5Fcreate: Function(FileName: PAnsiChar; Flags: UInt32; fcpl_id: Int64; fapl_id : Int64): Int64; cdecl;
     FH5Oopen: Function(FileId: Int64; Name: PAnsiChar; lapl_id: Int64): Int64; cdecl;
@@ -109,6 +109,7 @@ Type
     Property H5P_CLS_GROUP_CREATE_ID: Int64 read FH5P_CLS_GROUP_CREATE_ID;
     Property H5P_CLS_DATASET_CREATE_ID: Int64 read FH5P_CLS_DATASET_CREATE_ID;
     Property H5T_NATIVE_INT: Int64 read FH5T_NATIVE_INT;
+    Property H5T_NATIVE_FLOAT: Int64 read FH5T_NATIVE_FLOAT;
     Property H5T_NATIVE_DOUBLE: Int64 read FH5T_NATIVE_DOUBLE;
   end;
 
@@ -176,6 +177,8 @@ begin
     if FH5P_CLS_DATASET_CREATE_ID < 0 then raise Exception.Create('Error getting H5P_CLS_DATASET_CREATE_ID');
     FH5T_NATIVE_INT := PInt64(GetDllMethod('H5T_NATIVE_INT_g'))^;
     if FH5T_NATIVE_INT < 0 then raise Exception.Create('Error getting H5T_NATIVE_INT');
+    FH5T_NATIVE_FLOAT := PInt64(GetDllMethod('H5T_NATIVE_FLOAT_g'))^;
+    if FH5T_NATIVE_FLOAT < 0 then raise Exception.Create('Error getting H5T_NATIVE_FLOAT');
     FH5T_NATIVE_DOUBLE := PInt64(GetDllMethod('H5T_NATIVE_DOUBLE_g'))^;
     if FH5T_NATIVE_DOUBLE < 0 then raise Exception.Create('Error getting H5T_NATIVE_DOUBLE');
   end else
