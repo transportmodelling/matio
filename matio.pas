@@ -110,7 +110,7 @@ Type
     FMatrixLabels: TArray<String>;
     Function GetMatrixLabels(Mtrx: Integer): String; inline;
   strict protected
-    Constructor Create(const FileName: String); overload;
+    Constructor Create(const FileName: String; const CreateStream: Boolean = true); overload;
     Procedure SetCount(Count: Integer); override;
     Procedure SetFileLabel(const FileLabel: String);
     Procedure SetMatrixLabels(const Matrix: Integer; const MatrixLabel: String);
@@ -373,10 +373,11 @@ begin
   Result := false;
 end;
 
-Constructor TMatrixReader.Create(const FileName: String);
+Constructor TMatrixReader.Create(const FileName: String; const CreateStream: Boolean = true);
 begin
   inherited Create;
   FFileName := ExpandFileName(FileName);
+  if CreateStream then
   FileStream := TBufferedFileStream.Create(FFileName,fmOpenRead or fmShareDenyWrite,BufferSize);
 end;
 
