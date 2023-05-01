@@ -169,7 +169,7 @@ implementation
 Constructor THdf5Dll.Create;
 begin
   inherited Create;
-  DllHandle := LoadLibrary(pChar(Path));
+  DllHandle := SafeLoadLibrary(Path);
   if DllHandle <> 0 then
   begin
     // Load Hdf5 dll
