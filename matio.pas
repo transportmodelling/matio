@@ -68,6 +68,21 @@ Type
     Function RowValues(Matrix: Integer): TFloat32ArrayValues;
   end;
 
+  TMatrixIterator = Class
+  private
+    FCount,FSize,Index: Integer;
+    Matrices: TFloat64MatrixRows;
+  strict protected
+    Procedure Yield(const Row: TMatrixRow);
+  public
+    Constructor Create(Count,Size: Integer);
+    Procedure Iterate; virtual; abstract;
+    Destructor Destroy; override;
+  public
+    Property Count: Integer read FCount;
+    Property Size: Integer read FSize;
+  end;
+
   TMatrixFiler = Class
   // TMatrixFiler is the abstract base class for all matrix reader and writer objects
   private
@@ -119,12 +134,13 @@ Type
     Class Function HasFormat(const Header: TBytes): Boolean; virtual;
   public
     Constructor Create(const [ref] Properties: TPropertySet); overload; virtual; abstract;
+    Function  MatrixLabelsArray: TStringDynArray;
     Procedure Read(const Row: TFloat64MatrixRow); overload;
     Procedure Read(const Row: TFloat32MatrixRow); overload;
     Procedure Read(const Rows: array of TFloat64MatrixRow); overload;
     Procedure Read(const Rows: array of TFloat32MatrixRow); overload;
     Procedure Read(const Rows: TCustomMatrixRows); overload;
-    Function  MatrixLabelsArray: TStringDynArray;
+    Procedure Read(const Rows: TMatrixIterator); overload;
   public
     Property FileLabel: String read FFileLabel;
     Property MatrixLabels[Matrix: Integer]: String read GetMatrixLabels;
@@ -148,6 +164,7 @@ Type
     Procedure Write(const Rows: array of TFloat64MatrixRow); overload;
     Procedure Write(const Rows: array of TFloat32MatrixRow); overload;
     Procedure Write(const Rows: TCustomMatrixRows); overload;
+    Procedure Write(const Rows: TMatrixIterator); overload;
   end;
 
 Const
@@ -280,6 +297,33 @@ end;
 
 ////////////////////////////////////////////////////////////////////////////////
 
+Constructor TMatrixIterator.Create(Count,Size: Integer);
+begin
+  inherited Create;
+  FCount := Count;
+  FSize := Size;
+  Matrices := TFloat64MatrixRows.Create(Count,0);
+  Matrices.FSize := Size;
+end;
+
+Procedure TMatrixIterator.Yield(const Row: TMatrixRow);
+begin
+  if Length(Row) = FSize then
+  begin
+    Matrices.FValues[Index] := Row;
+    Inc(Index);
+  end else
+    raise Exception.Create('Invalid row size');
+end;
+
+Destructor TMatrixIterator.Destroy;
+begin
+  Matrices.Free;
+  inherited Destroy;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+
 Class Function TMatrixFiler.Available: Boolean;
 begin
   Result := true;
@@ -402,6 +446,11 @@ begin
   FMatrixLabels[Matrix] := MatrixLabel;
 end;
 
+Function TMatrixReader.MatrixLabelsArray: TStringDynArray;
+begin
+  Result := Copy(FMatrixLabels);
+end;
+
 Procedure TMatrixReader.Read(const Row: TFloat64MatrixRow);
 begin
   Float64MatrixRows.FCount := 1;
@@ -471,9 +520,14 @@ begin
     raise Exception.Create('Rows unassigned');
 end;
 
-Function TMatrixReader.MatrixLabelsArray: TStringDynArray;
+Procedure TMatrixReader.Read(const Rows: TMatrixIterator);
 begin
-  Result := Copy(FMatrixLabels);
+  Rows.Index := 0;
+  Rows.Iterate;
+  if Rows.Index = Rows.FCount then
+    Read(Rows.Matrices)
+  else
+    raise Exception.Create('Invalid iteration count');
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -555,6 +609,16 @@ begin
     end else
       raise Exception.Create('Writing too many rows to matrix file')
   else raise Exception.Create('Rows unassigned');
+end;
+
+Procedure TMatrixWriter.Write(const Rows: TMatrixIterator);
+begin
+  Rows.Index := 0;
+  Rows.Iterate;
+  if Rows.Index = Rows.FCount then
+    write(Rows.Matrices)
+  else
+    raise Exception.Create('Invalid iteration count');
 end;
 
 end.
