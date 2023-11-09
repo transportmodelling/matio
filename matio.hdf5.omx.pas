@@ -14,7 +14,7 @@ interface
 ////////////////////////////////////////////////////////////////////////////////
 
 Uses
-  SysUtils, Types, ArrayBld, PropSet, matio, matio.hdf5;
+  SysUtils, Types, ArrayBld, matio, matio.hdf5;
 
 Type
   TOMXPrecision = ftFloat32..ftFloat64;
@@ -32,16 +32,14 @@ Type
       Float64Row: TFloat64MatrixRow;
       MatrixPrecision: array of TOMXPrecision;
       MatrixDataSetIds,MatrixDataSpaceIds: array of Int64;
-  strict protected
+  protected
     Procedure Read(const CurrentRow: Integer; const Rows: TCustomMatrixRows); override;
   public
-    Class Function Format: String; override;
-    Class Function Available: Boolean; override;
+    Class Function Available: Boolean;
   public
     // A list of labels for the matrices to be read is passed as a constructor argument
     // to enable indexed access. The index to use for a specific matrix is the index of its
     // name in the list of matrix labels.
-    Constructor Create(const [ref] Properties: TPropertySet); overload; override;
     Constructor Create(const FileName: String; const MatrixLabels: array of String); overload;
     Destructor Destroy; override;
   public
@@ -51,7 +49,6 @@ Type
   TOMXMatrixWriter = Class(THdf5MatrixWriter)
   private
     Const
-      PrecisionProperty = 'prec';
       Single: array[0..1] of UInt64 = (1,1);
     Var
       FPrecision: TOMXPrecision;
@@ -61,19 +58,11 @@ Type
       Row64: TFloat64MatrixRow;
       ChunkSize: array[0..1] of UInt64;
   strict protected
-    Class Procedure AppendFormatProperties(const [ref] Properties: TPropertySet); override;
     Procedure Write(const CurrentRow: Integer; const Rows: TCustomMatrixRows); override;
   public
     Const
       OMXversion = '0.2';
-    Class Function Format: String; override;
-    Class Function Available: Boolean; override;
-    Class Function PropertyPickList(const PropertyName: string; out PickList: TStringDynArray): Boolean; override;
-  public
-    Constructor Create(const [ref] Properties: TPropertySet;
-                       const FileLabel: string;
-                       const MatrixLabels: array of String;
-                       const Size: Integer); overload; override;
+    Class Function Available: Boolean;
     Constructor Create(const FileName,FileLabel: string;
                        const MatrixLabels: array of String;
                        const Size: Integer;
@@ -87,23 +76,9 @@ Type
 implementation
 ////////////////////////////////////////////////////////////////////////////////
 
-Class Function TOMXMatrixReader.Format: String;
-begin
-  Result := 'omx';
-end;
-
 Class Function TOMXMatrixReader.Available: Boolean;
 begin
   Result := FileExists(THdf5Dll.Path);
-end;
-
-Constructor TOMXMatrixReader.Create(const [ref] Properties: TPropertySet);
-begin
-  if SameText(Properties[FormatProperty],Format) then
-    // This will create a reader with count = 0
-    Create(Properties.ToPath(FileProperty),[])
-  else
-    raise Exception.Create('Invalid format-property');
 end;
 
 Constructor TOMXMatrixReader.Create(const FileName: String; const MatrixLabels: array of String);
@@ -192,50 +167,9 @@ end;
 
 ////////////////////////////////////////////////////////////////////////////////
 
-Class Procedure TOMXMatrixWriter.AppendFormatProperties(const [ref] Properties: TPropertySet);
-begin
-  Properties.Append(PrecisionProperty,PrecisionLabels[ftFloat32]);
-end;
-
-Class Function TOMXMatrixWriter.PropertyPickList(const PropertyName: string; out PickList: TStringDynArray): Boolean;
-begin
-  if not inherited PropertyPickList(PropertyName,PickList) then
-  if SameText(PropertyName,PrecisionProperty) then
-  begin
-    Result := true;
-    PickList := [PrecisionLabels[ftFloat32],PrecisionLabels[ftFloat64]];
-  end else
-    Result := false;
-end;
-
-Class Function TOMXMatrixWriter.Format: String;
-begin
-  Result := 'omx';
-end;
-
 Class Function TOMXMatrixWriter.Available: Boolean;
 begin
   Result := FileExists(THdf5Dll.Path);
-end;
-
-Constructor TOMXMatrixWriter.Create(const [ref] Properties: TPropertySet;
-                                    const FileLabel: string;
-                                    const MatrixLabels: array of String;
-                                    const Size: Integer);
-begin
-  if SameText(Properties[FormatProperty],Format) then
-  begin
-    var ExtendedProperties := ExtendProperties(Properties);
-    var PrecisionPropertyValue := ExtendedProperties[PrecisionProperty];
-    for var Prec := low(TOMXPrecision) to high(TOMXPrecision) do
-    if SameText(PrecisionLabels[Prec],PrecisionPropertyValue) then
-    begin
-      Create(ExtendedProperties.ToPath(FileProperty),FileLabel,MatrixLabels,Size,Prec);
-      Exit;
-    end;
-    raise Exception.Create('Invalid precision-property');
-  end else
-    raise Exception.Create('Invalid format-property');
 end;
 
 Constructor TOMXMatrixWriter.Create(const FileName,FileLabel: string;

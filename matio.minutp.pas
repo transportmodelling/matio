@@ -12,7 +12,7 @@ interface
 ////////////////////////////////////////////////////////////////////////////////
 
 Uses
-   System.Classes,System.SysUtils,propSet,matio;
+   SysUtils, Classes, matio;
 
 Type
   TMinutpMatrixReader = Class(TMatrixReader)
@@ -22,20 +22,13 @@ Type
         Row,LastColumn: UInt16;
         Matrix: Byte;
       end;
-    Const
-      PrecisionProperty = 'prec';
     Var
       EOF: Boolean;
       Next: TMatrixRecordHeader;
       ScalingFactor: Real;
-  strict protected
+  protected
     Procedure Read(const CurrentRow: Integer; const Rows: TCustomMatrixRows); override;
-    Class Procedure AppendFormatProperties(const [ref] Properties: TPropertySet); override;
   public
-    Class Function Format: String; override;
-    Class Function HasFormat(const Header: TBytes): Boolean; override;
-  public
-    Constructor Create(const [ref] Properties: TPropertySet); overload; override;
     Constructor Create(Const FileName: TFileName; Const Precision: Byte = 0); overload;
   end;
 
@@ -43,7 +36,6 @@ Type
   private
     Const
       Max13Bit = 256*32-1;
-      PrecisionProperty = 'prec';
     Var
       ScalingFactor: Real;
       IntValues: array of Integer;
@@ -52,14 +44,7 @@ Type
     Procedure Write(const CurrentMatrix,CurrentRow,LastColumn: Integer; const Row: array of Integer); overload;
   strict protected
     Procedure Write(const CurrentRow: Integer; const Rows: TCustomMatrixRows); overload; override;
-    Class Procedure AppendFormatProperties(const [ref] Properties: TPropertySet); override;
   public
-    Class Function Format: String; override;
-  public
-    Constructor Create(const [ref] Properties: TPropertySet;
-                       const FileLabel: string;
-                       const MatrixLabels: array of String;
-                       const Size: Integer); overload; override;
     Constructor Create(Const FileName,FileLabel: String;
                        Const Count,Size: Integer;
                        Const Precision: Byte = 0); overload;
@@ -68,41 +53,6 @@ Type
 ////////////////////////////////////////////////////////////////////////////////
 implementation
 ////////////////////////////////////////////////////////////////////////////////
-
-Class Function TMinutpMatrixReader.Format: String;
-begin
-  Result := 'mtp';
-end;
-
-Class Function TMinutpMatrixReader.HasFormat(const Header: TBytes): Boolean;
-begin
-  if Length(Header) >= 74 then
-  begin
-    if TEncoding.ASCII.GetString(Copy(Header,66,7)) = ' MATRIX' then
-      if Header[73] = 45 then
-        Result := true
-      else
-        Result := false
-    else
-      Result := false;
-  end else
-    Result := false;
-end;
-
-Class Procedure TMinutpMatrixReader.AppendFormatProperties(const [ref] Properties: TPropertySet);
-begin
-  Properties.Append(PrecisionProperty,'0');
-end;
-
-Constructor TMinutpMatrixReader.Create(const [ref] Properties: TPropertySet);
-begin
-  if SameText(Properties[FormatProperty],Format) then
-  begin
-    var ExtendedProperties := ExtendProperties(Properties);
-    Create(ExtendedProperties.ToPath(FileProperty),ExtendedProperties.ToInt(PrecisionProperty));
-  end else
-    raise Exception.Create('Invalid format-property');
-end;
 
 Constructor TMinutpMatrixReader.Create(Const FileName: TFileName; Const Precision: Byte = 0);
 begin
@@ -213,30 +163,6 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
-
-Class Function TMinutpMatrixWriter.Format: String;
-begin
-  Result := 'mtp';
-end;
-
-Class Procedure TMinutpMatrixWriter.AppendFormatProperties(const [ref] Properties: TPropertySet);
-begin
-  Properties.Append(PrecisionProperty,'');
-end;
-
-Constructor TMinutpMatrixWriter.Create(const [ref] Properties: TPropertySet;
-                                       const FileLabel: string;
-                                       const MatrixLabels: array of String;
-                                       const Size: Integer);
-begin
-  if SameText(Properties[FormatProperty],Format) then
-  begin
-    var ExtendedProperties := ExtendProperties(Properties);
-    Create(ExtendedProperties.ToPath(FileProperty),FileLabel,Length(MatrixLabels),
-           Size,ExtendedProperties.ToInt(PrecisionProperty));
-  end else
-    raise Exception.Create('Invalid format-property');
-end;
 
 Constructor TMinutpMatrixWriter.Create(Const FileName,FileLabel: String;
                                        Const Count,Size: Integer;

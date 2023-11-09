@@ -12,7 +12,7 @@ interface
 ////////////////////////////////////////////////////////////////////////////////
 
 Uses
-  System.Classes, System.SysUtils, System.IOUtils, System.Types, PropSet, ArrayVal;
+  System.Classes, System.SysUtils, System.IOUtils, System.Types, PropSet, ArrayHlp, ArrayVal;
 
 Type
   TFloatType = (ftFloat16,ftFloat32,ftFloat64);
@@ -25,6 +25,7 @@ Type
   private
     FCount,FSize: Integer;
     RoundToZeroThreshold: Float64;
+    TargetMatrices: TArray<Integer>;
     Function DoGetValues(Matrix,Column: Integer): Float64; inline;
     Procedure DoSetValues(Matrix,Column: Integer; Value: Float64); inline;
   strict protected
@@ -89,8 +90,6 @@ Type
     FFileName: String;
     FCount,FSize,CurrentRow: Integer;
   strict protected
-    Class Procedure AppendFormatProperties(const [ref] Properties: TPropertySet); virtual;
-  strict protected
     Const
       BufferSize: Integer = 4096;
     Var
@@ -99,16 +98,6 @@ Type
       Float32MatrixRows: TFloat32MatrixRows;
     Procedure SetCount(Count: Integer); virtual;
     Procedure SetSize(Size: Integer);
-    Function ExtendProperties(const [ref] Properties: TPropertySet): TPropertySet;
-  public
-    Const
-      FileProperty = 'file';
-      FormatProperty = 'format';
-    Class Function Format: String; virtual; abstract;
-    Class Function Available: Boolean; virtual;
-    Class Function FormatProperties(ReadOnly: Boolean = true): TPropertySet;
-    Class Function PropertyPickList(const PropertyName: string; out PickList: TStringDynArray): Boolean; virtual;
-    Class Function TidyProperties(const [ref] Properties: TPropertySet; ReadOnly: Boolean = true): TPropertySet;
   public
     Constructor Create;
     Destructor Destroy; override;
@@ -129,11 +118,9 @@ Type
     Procedure SetCount(Count: Integer); override;
     Procedure SetFileLabel(const FileLabel: String);
     Procedure SetMatrixLabels(const Matrix: Integer; const MatrixLabel: String);
+  protected
     Procedure Read(const CurrentRow: Integer; const Rows: TCustomMatrixRows); overload; virtual; abstract;
   public
-    Class Function HasFormat(const Header: TBytes): Boolean; virtual;
-  public
-    Constructor Create(const [ref] Properties: TPropertySet); overload; virtual; abstract;
     Function  MatrixLabelsArray: TStringDynArray;
     Procedure Read(const Row: TFloat64MatrixRow); overload;
     Procedure Read(const Row: TFloat32MatrixRow); overload;
@@ -146,19 +133,29 @@ Type
     Property MatrixLabels[Matrix: Integer]: String read GetMatrixLabels;
   end;
 
+  TMaskedMatrixReader = Class(TMatrixReader)
+  // Hides some of the matrices in a matrix file
+  // The object takes ownership of the unmasked reader
+  private
+    Unmasked: TMatrixReader;
+    TargetMatrices: TArray<Integer>;
+  protected
+    Procedure Read(const CurrentRow: Integer; const Rows: TCustomMatrixRows); overload; override;
+  public
+    Constructor Create(const Reader: TMatrixReader; const Selection: array of Integer);
+    Destructor Destroy; override;
+  end;
+
   TMatrixWriter = Class(TMatrixFiler)
   // TMatrixWriter is the abstract base class for all format specific matrix writer objects
   strict protected
     Constructor Create(const FileName: String; const Count,Size: Integer; const CreateStream: Boolean = true); overload;
+  protected
     Procedure Write(const CurrentRow: Integer; const Rows: TCustomMatrixRows); overload; virtual; abstract;
   public
     Class Var
       RoundToZeroThreshold: Float64;
   public
-    Constructor Create(const [ref] Properties: TPropertySet;
-                       const FileLabel: string;
-                       const MatrixLabels: array of String;
-                       const Size: Integer); overload; virtual; abstract;
     Procedure Write(const Row: TFloat64MatrixRow); overload;
     Procedure Write(const Row: TFloat32MatrixRow); overload;
     Procedure Write(const Rows: array of TFloat64MatrixRow); overload;
@@ -186,7 +183,15 @@ end;
 
 Procedure TCustomMatrixRows.DoSetValues(Matrix,Column: Integer; Value: Float64);
 begin
-  if (Matrix < FCount) and (Column < FSize) then SetValues(Matrix,Column,Value);
+  if TargetMatrices.Length = 0 then
+  begin
+    if (Matrix < FCount) and (Column < FSize) then SetValues(Matrix,Column,Value);
+  end else
+  if Matrix < TargetMatrices.Length then
+  begin
+    Matrix := TargetMatrices[Matrix];
+    if (Matrix >= 0) and (Matrix < FCount) and (Column < FSize) then SetValues(Matrix,Column,Value);
+  end;
 end;
 
 Procedure TCustomMatrixRows.Init(Count,Size: Integer);
@@ -324,51 +329,6 @@ end;
 
 ////////////////////////////////////////////////////////////////////////////////
 
-Class Function TMatrixFiler.Available: Boolean;
-begin
-  Result := true;
-end;
-
-Class Function TMatrixFiler.FormatProperties(ReadOnly: Boolean = true): TPropertySet;
-begin
-  Result := TPropertySet.Create(ReadOnly);
-  Result.Append(FileProperty,'');
-  Result.Append(FormatProperty,Format);
-  AppendFormatProperties(Result);
-end;
-
-Class Function TMatrixFiler.PropertyPickList(const PropertyName: string; out PickList: TStringDynArray): Boolean;
-begin
-  if PropertyName = FormatProperty then
-  begin
-    Result := true;
-    PickList := [Format];
-  end else
-    Result := false;
-end;
-
-Class Function TMatrixFiler.TidyProperties(const [ref] Properties: TPropertySet; ReadOnly: Boolean = true): TPropertySet;
-Var
-  Value: String;
-begin
-  if SameText(Properties[FormatProperty],Format) then
-  begin
-    var Defaults := FormatProperties;
-    Result := TPropertySet.Create(ReadOnly);
-    for var Prop := 0 to Defaults.Count-1 do
-    begin
-      var Name := Defaults.Names[Prop];
-      if SameText(Name,FileProperty) or SameText(Name,FormatProperty) then
-        Result.Append(Name,Properties[Name])
-      else
-        if Properties.Contains(Name,Value) then
-        if not SameText(Defaults.ValueFromIndex[Prop],Value) then
-        Result.Append(Name,Value)
-    end;
-  end else
-    raise Exception.Create('Invalid format-property');
-end;
-
 Constructor TMatrixFiler.Create;
 begin
   inherited Create;
@@ -386,22 +346,6 @@ begin
   FSize := Size;
 end;
 
-Class Procedure TMatrixFiler.AppendFormatProperties(const [ref] Properties: TPropertySet);
-begin
-end;
-
-Function TMatrixFiler.ExtendProperties(const [ref] Properties: TPropertySet): TPropertySet;
-Var
-  Value: String;
-begin
-  Result := FormatProperties(false);
-  for var Prop := 0 to Result.Count-1 do
-  begin
-    if Properties.Contains(Result.Names[Prop],Value) then
-    Result.ValueFromIndex[Prop] := Value;
-  end;
-end;
-
 Destructor TMatrixFiler.Destroy;
 begin
   Float64MatrixRows.Free;
@@ -411,11 +355,6 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
-
-Class Function TMatrixReader.HasFormat(const Header: TBytes): Boolean;
-begin
-  Result := false;
-end;
 
 Constructor TMatrixReader.Create(const FileName: String; const CreateStream: Boolean = true);
 begin
@@ -528,6 +467,54 @@ begin
     Read(Rows.Matrices)
   else
     raise Exception.Create('Invalid iteration count');
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+
+Constructor TMaskedMatrixReader.Create(const Reader: TMatrixReader; const Selection: array of Integer);
+begin
+  if Length(Selection) > 0 then
+  begin
+    inherited Create(Reader.FileName,false);
+    // Copy file properties
+    FFileLabel := Reader.FFileLabel;
+    SetSize(Reader.Size);
+    // Set target matrices
+    var Nmatrices := 0;
+    for var Selected in Selection do
+    begin
+      if Selected >= Nmatrices then
+      begin
+        TargetMatrices.Length := Selected+1;
+        for var Matrix := Nmatrices to Selected-1 do TargetMatrices[Matrix] := -1;
+        TargetMatrices[Selected] := FCount;
+        SetCount(FCount+1);
+        SetMatrixLabels(FCount-1,Reader.MatrixLabels[Selected]);
+        Nmatrices := TargetMatrices.Length;
+      end;
+    end;
+    // Set unmasked reader
+    Unmasked := Reader;
+  end else
+    raise Exception.Create('Empty selection');
+end;
+
+Procedure TMaskedMatrixReader.Read(const CurrentRow: Integer; const Rows: TCustomMatrixRows);
+begin
+  Rows.TargetMatrices := TargetMatrices;
+  try
+    Unmasked.Read(CurrentRow,Rows);
+    SetCount(Unmasked.Count);
+    SetSize(Unmasked.Size);
+  finally
+    Rows.TargetMatrices := nil;
+  end;
+end;
+
+Destructor TMaskedMatrixReader.Destroy;
+begin
+  Unmasked.Free;
+  inherited Destroy;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

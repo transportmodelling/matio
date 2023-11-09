@@ -29,7 +29,9 @@ Type
     Procedure SetValues(Matrix,Row,Column: Integer; Value: Float64); virtual; abstract;
   public
     Function MatrixLabelValues: TStringArrayValues;
-    Procedure Read(const [ref] Properties: TPropertySet); virtual; abstract;
+    Procedure Read(const [ref] Properties: TPropertySet); overload; virtual; abstract;
+    Procedure Read(const [ref] Properties: TPropertySet;
+                   const Selection: array of Integer); overload; virtual; abstract;
     Procedure Transpose(Matrix: Integer); overload;
     Procedure Transpose; overload;
     Procedure Save(const [ref] Properties: TPropertySet); virtual; abstract;
@@ -49,7 +51,9 @@ Type
     Procedure SetValues(Matrix,Row,Column: Integer; Value: Float64); override;
   public
     Constructor Create(Count,Size: Integer);
-    Procedure Read(const [ref] Properties: TPropertySet); override;
+    Procedure Read(const [ref] Properties: TPropertySet); overload; override;
+    Procedure Read(const [ref] Properties: TPropertySet;
+                   const Selection: array of Integer); overload; override;
     Function RowValues(Matrix,Row: Integer): TFloat64ArrayValues;
     Procedure Save(const [ref] Properties: TPropertySet); override;
     Destructor Destroy;
@@ -62,7 +66,9 @@ Type
     Procedure SetValues(Matrix,Row,Column: Integer; Value: Float64); override;
   public
     Constructor Create(Count,Size: Integer);
-    Procedure Read(const [ref] Properties: TPropertySet); override;
+    Procedure Read(const [ref] Properties: TPropertySet); overload; override;
+    Procedure Read(const [ref] Properties: TPropertySet;
+                   const Selection: array of Integer); overload; override;
     Function RowValues(Matrix,Row: Integer): TFloat32ArrayValues;
     Procedure Save(const [ref] Properties: TPropertySet); override;
     Destructor Destroy;
@@ -150,6 +156,24 @@ begin
   end;
 end;
 
+Procedure TFloat64Matrices.Read(const [ref] Properties: TPropertySet;
+                                const Selection: array of Integer);
+begin
+  var Reader := MatrixFormats.CreateReader(Properties,Selection);
+  try
+    ResetLabels;
+    FFileName := Reader.FileName;
+    FFileLabel := Reader.FileLabel;
+    if FCount <= Reader.Count then
+      for var Matrix := 0 to FCount-1 do FMatrixLabels[Matrix] := Reader.MatrixLabels[Matrix]
+    else
+      for var Matrix := 0 to Reader.Count-1 do FMatrixLabels[Matrix] := Reader.MatrixLabels[Matrix];
+    for var Row := 0 to FSize-1 do Reader.Read(FRows[Row])
+  finally
+    Reader.Free;
+  end;
+end;
+
 Function TFloat64Matrices.RowValues(Matrix,Row: Integer): TFloat64ArrayValues;
 begin
   Result := FRows[Row].RowValues(Matrix);
@@ -197,6 +221,24 @@ end;
 Procedure TFloat32Matrices.Read(const [ref] Properties: TPropertySet);
 begin
   var Reader := MatrixFormats.CreateReader(Properties);
+  try
+    ResetLabels;
+    FFileName := Reader.FileName;
+    FFileLabel := Reader.FileLabel;
+    if FCount <= Reader.Count then
+      for var Matrix := 0 to FCount-1 do FMatrixLabels[Matrix] := Reader.MatrixLabels[Matrix]
+    else
+      for var Matrix := 0 to Reader.Count-1 do FMatrixLabels[Matrix] := Reader.MatrixLabels[Matrix];
+    for var Row := 0 to FSize-1 do Reader.Read(FRows[Row])
+  finally
+    Reader.Free;
+  end;
+end;
+
+Procedure TFloat32Matrices.Read(const [ref] Properties: TPropertySet;
+                                const Selection: array of Integer);
+begin
+  var Reader := MatrixFormats.CreateReader(Properties,Selection);
   try
     ResetLabels;
     FFileName := Reader.FileName;

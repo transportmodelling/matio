@@ -12,7 +12,7 @@ interface
 ////////////////////////////////////////////////////////////////////////////////
 
 Uses
-  System.Classes,System.SysUtils,System.Math,System.Types,Parse,ArrayBld,PropSet,matio;
+  Classes, SysUtils, Math, Types, Parse, ArrayBld, matio;
 
 Type
   TTextMatrixReader = Class(TMatrixReader)
@@ -23,14 +23,9 @@ Type
     TextFormatSettings: TFormatSettings;
     StreamReader: TStreamReader;
     Procedure Proceed;
-  strict protected
+  protected
     Procedure Read(const CurrentRow: Integer; const Rows: TCustomMatrixRows); override;
-    Class Procedure AppendFormatProperties(const [ref] Properties: TPropertySet); override;
   public
-    Class Function Format: String; override;
-    Class Function PropertyPickList(const PropertyName: string; out PickList: TStringDynArray): Boolean; override;
-  public
-    Constructor Create(const [ref] Properties: TPropertySet); overload; override;
     Constructor Create(const FileName: String;
                        const Header: Boolean = true;
                        const Delimiter: TDelimiter = Tab;
@@ -56,19 +51,12 @@ Type
     Class Procedure SetColumnLabel(ColumnLabel: String); static;
   strict protected
     Procedure Write(const CurrentRow: Integer; const Rows: TCustomMatrixRows); override;
-    Class Procedure AppendFormatProperties(const [ref] Properties: TPropertySet); override;
   public
     Class Constructor Create;
-    Class Function Format: String; override;
-    Class Function PropertyPickList(const PropertyName: string; out PickList: TStringDynArray): Boolean; override;
   public
     Class Property RowLabel: String read FRowLabel write SetRowLabel;
     Class Property ColumnLabel: String read FColumnLabel write SetColumnLabel;
   public
-    Constructor Create(const [ref] Properties: TPropertySet;
-                       const FileLabel: string;
-                       const MatrixLabels: array of String;
-                       const Size: Integer); overload; override;
     Constructor Create(const FileName: String;
                        const MatrixLabels: array of String;
                        const Size: Integer;
@@ -94,120 +82,7 @@ implementation
 ////////////////////////////////////////////////////////////////////////////////
 
 Const
-  EncodingProperty = 'encoding';
-  DecimalsProperty = 'decimals';
-  HeaderProperty = 'header';
-  DecimalSeparatorProperty = 'separator';
-  ThousandSeparatorProperty = 'e3separator';
-  SeparatorOptions: array[0..2] of String = ('none','point','comma');
-  Separators: array[0..2] of Char = (#0,'.',',');
-  DelimiterProperty = 'delim';
-  DelimiterOptions: array[TDelimiter] of String = ('comma','tab','semicolon','space');
   Delimiters: array[TDelimiter] of Char = (',',#9,';',#9);
-  BOMProperty = 'bom';
-
-
-Class Function TTextMatrixReader.Format: String;
-begin
-  Result := 'txt';
-end;
-
-Class Procedure TTextMatrixReader.AppendFormatProperties(const [ref] Properties: TPropertySet);
-begin
-  Properties.Append(EncodingProperty,'ascii');
-  Properties.Append(DelimiterProperty,DelimiterOptions[Tab]);
-  Properties.Append(HeaderProperty,true.ToString(TUseBoolStrs.True));
-  Properties.Append(DecimalSeparatorProperty,SeparatorOptions[1]);
-  Properties.Append(ThousandSeparatorProperty,SeparatorOptions[0]);
-end;
-
-Class Function TTextMatrixReader.PropertyPickList(const PropertyName: string;
-                                                  out PickList: TStringDynArray): Boolean;
-begin
-  if not inherited PropertyPickList(PropertyName,PickList) then
-  if SameText(PropertyName,DelimiterProperty) then
-  begin
-    Result := true;
-    PickList := TStringArrayBuilder.Create(DelimiterOptions);
-  end else
-  if SameText(PropertyName,HeaderProperty) then
-  begin
-    Result := true;
-    PickList := TStringArrayBuilder.Create([LowerCase(False.ToString(TUseBoolStrs.True)),
-                                            LowerCase(True.ToString(TUseBoolStrs.True))]);
-  end else
-  if SameText(PropertyName,DecimalSeparatorProperty) then
-  begin
-    Result := true;
-    PickList := TStringArrayBuilder.Create(SeparatorOptions,1,Length(SeparatorOptions)-1);
-  end else
-  if SameText(PropertyName,ThousandSeparatorProperty) then
-  begin
-    Result := true;
-    PickList := TStringArrayBuilder.Create(SeparatorOptions);
-  end else
-    Result := false;
-end;
-
-Constructor TTextMatrixReader.Create(const [ref] Properties: TPropertySet);
-Var
-  Header: Boolean;
-  Delimiter: TDelimiter;
-begin
-  if SameText(Properties[FormatProperty],Format) then
-  begin
-    var ExtendedProperties := ExtendProperties(Properties);
-    // Set encoding
-    var Encoding := TEncoding.GetEncoding(ExtendedProperties[EncodingProperty]);
-    // Set header
-    var ValidHeader := false;
-    var HeaderPropertyValue := ExtendedProperties[HeaderProperty];
-    for var Head := false to true do
-    if SameText(Head.ToString(TUseBoolStrs.True),HeaderPropertyValue) then
-    begin
-      Header := Head;
-      ValidHeader := true;
-      Break;
-    end;
-    if not ValidHeader then raise Exception.Create('Invalid header');
-    // Set decimal separator
-    var ValidDecimalSeparator := false;
-    var DecimalSeparatorPropertyValue := ExtendedProperties[DecimalSeparatorProperty];
-    for var Separator := 1 to 2 do
-    if SameText(SeparatorOptions[Separator],DecimalSeparatorPropertyValue) then
-    begin
-      TextFormatSettings.DecimalSeparator := Separators[Separator];
-      ValidDecimalSeparator := true;
-      Break;
-    end;
-    if not ValidDecimalSeparator then raise Exception.Create('Invalid decimal separator');
-    // Set thousand separator
-    var ValidThousandSeparator := false;
-    var ThousandSeparatorPropertyValue := ExtendedProperties[ThousandSeparatorProperty];
-    for var Separator := 0 to 2 do
-    if SameText(SeparatorOptions[Separator],ThousandSeparatorPropertyValue) then
-    begin
-      TextFormatSettings.ThousandSeparator := Separators[Separator];
-      ValidThousandSeparator := true;
-      Break;
-    end;
-    if not ValidThousandSeparator then raise Exception.Create('Invalid thousand separator');
-    // Set delimiter
-    var ValidDelimiter := false;
-    var DelimiterPropertyValue := ExtendedProperties[DelimiterProperty];
-    for var Delim := low(DelimiterOptions) to high(DelimiterOptions) do
-    if SameText(DelimiterOptions[Delim],DelimiterPropertyValue) then
-    begin
-      Delimiter := Delim;
-      ValidDelimiter := true;
-      Break;
-    end;
-    if not ValidDelimiter then raise Exception.Create('Invalid delimiter');
-    // Create reader
-    Create(ExtendedProperties.ToPath(FileProperty),TextFormatSettings,Header,Delimiter,Encoding);
-  end else
-    raise Exception.Create('Invalid format-property');
-end;
 
 Constructor TTextMatrixReader.Create(const FileName: String;
                                      const Header: Boolean = true;
@@ -342,128 +217,6 @@ begin
   ColumnLabel := Trim(ColumnLabel);
   if ColumnLabel <> '' then FColumnLabel := ColumnLabel else
   raise Exception.Create('Header label cannot be empty');
-end;
-
-Class Function TTextMatrixWriter.Format: String;
-begin
-  Result := 'txt';
-end;
-
-Class Procedure TTextMatrixWriter.AppendFormatProperties(const [ref] Properties: TPropertySet);
-begin
-  Properties.Append(EncodingProperty,'ascii');
-  Properties.Append(DelimiterProperty,DelimiterOptions[Tab]);
-  Properties.Append(HeaderProperty,true.ToString(TUseBoolStrs.True));
-  Properties.Append(DecimalSeparatorProperty,SeparatorOptions[1]);
-  Properties.Append(DecimalsProperty,'3');
-  Properties.Append(ThousandSeparatorProperty,SeparatorOptions[0]);
-  Properties.Append(BOMProperty,false.ToString(TUseBoolStrs.True));
-end;
-
-Class Function TTextMatrixWriter.PropertyPickList(const PropertyName: string;
-                                                  out PickList: TStringDynArray): Boolean;
-begin
-  if not inherited PropertyPickList(PropertyName,PickList) then
-  if SameText(PropertyName,DelimiterProperty) then
-  begin
-    Result := true;
-    PickList := TStringArrayBuilder.Create(DelimiterOptions);
-  end else
-  if SameText(PropertyName,HeaderProperty) or SameText(PropertyName,BOMProperty) then
-  begin
-    Result := true;
-    PickList := TStringArrayBuilder.Create([LowerCase(False.ToString(TUseBoolStrs.True)),
-                                            LowerCase(True.ToString(TUseBoolStrs.True))]);
-  end else
-  if SameText(PropertyName,DecimalSeparatorProperty) then
-  begin
-    Result := true;
-    PickList := TStringArrayBuilder.Create(SeparatorOptions,1,Length(SeparatorOptions)-1);
-  end else
-  if SameText(PropertyName,ThousandSeparatorProperty) then
-  begin
-    Result := true;
-    PickList := TStringArrayBuilder.Create(SeparatorOptions);
-  end else
-    Result := false;
-end;
-
-Constructor TTextMatrixWriter.Create(const [ref] Properties: TPropertySet;
-                                     const FileLabel: string;
-                                     const MatrixLabels: array of String;
-                                     const Size: Integer);
-Var
-  Header,WriteBOM: Boolean;
-  Decimals: Integer;
-  Delimiter: TDelimiter;
-begin
-  if SameText(Properties[FormatProperty],Format) then
-  begin
-    var ExtendedProperties := ExtendProperties(Properties);
-    // Set encoding
-    var Encoding := TEncoding.GetEncoding(ExtendedProperties[EncodingProperty]);
-    // Set decimals
-    Decimals := ExtendedProperties[DecimalsProperty].ToInteger;
-    // Set header
-    var ValidHeader := false;
-    var HeaderPropertyValue := ExtendedProperties[HeaderProperty];
-    for var Head := false to true do
-    if SameText(Head.ToString(TUseBoolStrs.True),HeaderPropertyValue) then
-    begin
-      Header := Head;
-      ValidHeader := true;
-      Break;
-    end;
-    if not ValidHeader then raise Exception.Create('Invalid header');
-    // Set decimal separator
-    var ValidDecimalSeparator := false;
-    var DecimalSeparatorPropertyValue := ExtendedProperties[DecimalSeparatorProperty];
-    for var Separator := 1 to 2 do
-    if SameText(SeparatorOptions[Separator],DecimalSeparatorPropertyValue) then
-    begin
-      TextFormatSettings.DecimalSeparator := Separators[Separator];
-      ValidDecimalSeparator := true;
-      Break;
-    end;
-    if not ValidDecimalSeparator then raise Exception.Create('Invalid decimal separator');
-    // Set thousand separator
-    var ValidThousandSeparator := false;
-    var ThousandSeparatorPropertyValue := ExtendedProperties[ThousandSeparatorProperty];
-    for var Separator := 0 to 2 do
-    if SameText(SeparatorOptions[Separator],ThousandSeparatorPropertyValue) then
-    begin
-      TextFormatSettings.ThousandSeparator := Separators[Separator];
-      ValidThousandSeparator := true;
-      Break;
-    end;
-    if not ValidThousandSeparator then raise Exception.Create('Invalid thousand separator');
-    // Set delimiter
-    var ValidDelimiter := false;
-    var DelimiterPropertyValue := ExtendedProperties[DelimiterProperty];
-    for var Delim := low(DelimiterOptions) to high(DelimiterOptions) do
-    if SameText(DelimiterOptions[Delim],DelimiterPropertyValue) then
-    begin
-      Delimiter := Delim;
-      ValidDelimiter := true;
-      Break;
-    end;
-    if not ValidDelimiter then raise Exception.Create('Invalid delimiter');
-    // Set Byte Order Mark
-    var ValidBOM := false;
-    var BOMPropertyValue := ExtendedProperties[BOMProperty];
-    for var BOM := false to true do
-    if SameText(BOM.ToString(TUseBoolStrs.True),BOMPropertyValue) then
-    begin
-      WriteBOM := BOM;
-      ValidBOM := true;
-      Break;
-    end;
-    if not ValidBOM then raise Exception.Create('Invalid bom');
-    // Create writer
-    Create(ExtendedProperties.ToPath(FileProperty),MatrixLabels,Size,
-           TextFormatSettings,Header,Delimiter,Decimals,Encoding,WriteBOM);
-  end else
-    raise Exception.Create('Invalid format-property');
 end;
 
 Constructor TTextMatrixWriter.Create(const FileName: String;
