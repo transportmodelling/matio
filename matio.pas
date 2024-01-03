@@ -121,6 +121,7 @@ Type
   protected
     Procedure Read(const CurrentRow: Integer; const Rows: TCustomMatrixRows); overload; virtual; abstract;
   public
+    Function  GetMatrix(const MatrixLabel: string): Integer;
     Function  MatrixLabelsArray: TStringDynArray;
     Procedure Read(const Row: TFloat64MatrixRow); overload;
     Procedure Read(const Row: TFloat32MatrixRow); overload;
@@ -142,7 +143,8 @@ Type
   protected
     Procedure Read(const CurrentRow: Integer; const Rows: TCustomMatrixRows); overload; override;
   public
-    Constructor Create(const Reader: TMatrixReader; const Selection: array of Integer);
+    Constructor Create(const Reader: TMatrixReader; const Selection: array of Integer); overload;
+    Constructor Create(const Reader: TMatrixReader; const Selection: array of String); overload;
     Destructor Destroy; override;
   end;
 
@@ -385,6 +387,13 @@ begin
   FMatrixLabels[Matrix] := MatrixLabel;
 end;
 
+Function TMatrixReader.GetMatrix(const MatrixLabel: string): Integer;
+begin
+  Result := -1;
+  for var Matrix := 0 to FCount-1 do
+  if SameText(FMatrixLabels[Matrix],MatrixLabel) then Exit(Matrix);
+end;
+
 Function TMatrixReader.MatrixLabelsArray: TStringDynArray;
 begin
   Result := Copy(FMatrixLabels);
@@ -496,6 +505,43 @@ begin
         SetMatrixLabels(FCount-1,Reader.MatrixLabels[Selected]);
       end else
         raise Exception.Create('Matrix ' + Selected.ToString + ' selected multiple times');
+    end;
+    // Set unmasked reader
+    Unmasked := Reader;
+  end else
+    raise Exception.Create('Empty selection');
+end;
+
+Constructor TMaskedMatrixReader.Create(const Reader: TMatrixReader; const Selection: array of String);
+begin
+  if Length(Selection) > 0 then
+  begin
+    inherited Create(Reader.FileName,false);
+    // Copy file properties
+    FFileLabel := Reader.FFileLabel;
+    SetSize(Reader.Size);
+    // Set target matrices
+    var Nmatrices := 0;
+    for var MatrixLabel in Selection do
+    begin
+      var Selected := Reader.GetMatrix(MatrixLabel);
+      if Selected >= 0 then
+      begin
+        if Selected >= Nmatrices then
+        begin
+          TargetMatrices.Length := Selected+1;
+          for var Matrix := Nmatrices to Selected do TargetMatrices[Matrix] := -1;
+          Nmatrices := TargetMatrices.Length;
+        end;
+        if TargetMatrices[Selected] < 0 then
+        begin
+          TargetMatrices[Selected] := FCount;
+          SetCount(FCount+1);
+          SetMatrixLabels(FCount-1,Reader.MatrixLabels[Selected]);
+        end else
+          raise Exception.Create('Matrix ' + Selected.ToString + ' selected multiple times');
+      end else
+        raise Exception.Create('Matrix ' + MatrixLabel + ' does not exist');
     end;
     // Set unmasked reader
     Unmasked := Reader;

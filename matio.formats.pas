@@ -67,6 +67,8 @@ Type
     Function CreateReader(const [ref] Properties: TPropertySet): TMatrixReader; overload;
     Function CreateReader(const [ref] Properties: TPropertySet;
                           const Selection: array of Integer): TMatrixReader; overload;
+    Function CreateReader(const [ref] Properties: TPropertySet;
+                          const Selection: array of String): TMatrixReader; overload;
     Function CreateWriter(const [ref] Properties: TPropertySet;
                           const FileLabel: string;
                           const MatrixLabels: array of String;
@@ -242,7 +244,20 @@ Function TMatrixFormats.CreateReader(const [ref] Properties: TPropertySet;
                                      const Selection: array of Integer): TMatrixReader;
 begin
   var Reader := CreateReader(Properties);
-  Result := TMaskedMatrixReader.Create(Reader,Selection);
+  if Reader <> nil then
+    Result := TMaskedMatrixReader.Create(Reader,Selection)
+  else
+    Result := nil;
+end;
+
+Function TMatrixFormats.CreateReader(const [ref] Properties: TPropertySet;
+                                     const Selection: array of String): TMatrixReader;
+begin
+  var Reader := CreateReader(Properties);
+  if Reader <> nil then
+    Result := TMaskedMatrixReader.Create(Reader,Selection)
+  else
+    Result := nil;
 end;
 
 Function TMatrixFormats.CreateWriter(const [ref] Properties: TPropertySet;
