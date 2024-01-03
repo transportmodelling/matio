@@ -134,7 +134,7 @@ Type
   end;
 
   TMaskedMatrixReader = Class(TMatrixReader)
-  // Hides some of the matrices in a matrix file
+  // Reads a selection of the matrices in a file
   // The object takes ownership of the unmasked reader
   private
     Unmasked: TMatrixReader;
@@ -486,12 +486,16 @@ begin
       if Selected >= Nmatrices then
       begin
         TargetMatrices.Length := Selected+1;
-        for var Matrix := Nmatrices to Selected-1 do TargetMatrices[Matrix] := -1;
+        for var Matrix := Nmatrices to Selected do TargetMatrices[Matrix] := -1;
+        Nmatrices := TargetMatrices.Length;
+      end;
+      if TargetMatrices[Selected] < 0 then
+      begin
         TargetMatrices[Selected] := FCount;
         SetCount(FCount+1);
         SetMatrixLabels(FCount-1,Reader.MatrixLabels[Selected]);
-        Nmatrices := TargetMatrices.Length;
-      end;
+      end else
+        raise Exception.Create('Matrix ' + Selected.ToString + ' selected multiple times');
     end;
     // Set unmasked reader
     Unmasked := Reader;
