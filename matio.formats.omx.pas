@@ -15,6 +15,13 @@ Uses
   SysUtils, Types, Propset, matio, matio.formats, matio.hdf5.omx;
 
 Type
+  TOMXMatrixReaderFormat = Class(TLabeledMatrixReaderFormat)
+  public
+    Class Function Format: String; override;
+  public
+    Function CreateReader(const [ref] Properties: TPropertySet; const Selection: array of String): TMatrixReader; override;
+  end;
+
   TOMXMatrixWriterFormat = Class(TMatrixWriterFormat)
   private
     Const
@@ -34,6 +41,21 @@ Type
 
 ////////////////////////////////////////////////////////////////////////////////
 implementation
+////////////////////////////////////////////////////////////////////////////////
+
+Class Function TOMXMatrixReaderFormat.Format: String;
+begin
+  Result := 'omx';
+end;
+
+Function TOMXMatrixReaderFormat.CreateReader(const [ref] Properties: TPropertySet; const Selection: array of String): TMatrixReader;
+begin
+  if SameText(Properties[FormatProperty],Format) then
+    Result := TOMXMatrixReader.Create(Properties.ToPath(FileProperty),Selection)
+  else
+    raise Exception.Create('Invalid format-property');
+end;
+
 ////////////////////////////////////////////////////////////////////////////////
 
 Class Procedure TOMXMatrixWriterFormat.AppendFormatProperties(const [ref] Properties: TPropertySet);
