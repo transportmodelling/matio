@@ -19,7 +19,14 @@ Type
   private
     Reader: TMatrixReader;
   public
-    Constructor Create(const [ref] Properties: TPropertySet; Count,Size: Integer);
+    Constructor Create(const [ref] Properties: TPropertySet;
+                       const Count,Size: Integer); overload;
+    Constructor Create(const [ref] Properties: TPropertySet;
+                       const Selection: array of Integer;
+                       const Size: Integer); overload;
+    Constructor Create(const [ref] Properties: TPropertySet;
+                       const Selection: array of String;
+                       const Size: Integer); overload;
     Procedure Read;
     Destructor Destroy; override;
   end;
@@ -40,12 +47,37 @@ Type
 implementation
 ////////////////////////////////////////////////////////////////////////////////
 
-Constructor TMatrixRowsReader.Create(const [ref] Properties: TPropertySet; Count,Size: Integer);
+Constructor TMatrixRowsReader.Create(const [ref] Properties: TPropertySet;
+                                     const Count,Size: Integer);
 begin
   inherited Create;
   Reader := MatrixFormats.CreateReader(Properties);
   if Reader <> nil then
     Allocate(Count,Size)
+  else
+    raise Exception.Create('Error opening matrix file');
+end;
+
+Constructor TMatrixRowsReader.Create(const [ref] Properties: TPropertySet;
+                                     const Selection: array of Integer;
+                                     const Size: Integer);
+begin
+  inherited Create;
+  Reader := MatrixFormats.CreateReader(Properties,Selection);
+  if Reader <> nil then
+    Allocate(Length(Selection),Size)
+  else
+    raise Exception.Create('Error opening matrix file');
+end;
+
+Constructor TMatrixRowsReader.Create(const [ref] Properties: TPropertySet;
+                                     const Selection: array of String;
+                                     const Size: Integer);
+begin
+  inherited Create;
+  Reader := MatrixFormats.CreateReader(Properties,Selection);
+  if Reader <> nil then
+    Allocate(Length(Selection),Size)
   else
     raise Exception.Create('Error opening matrix file');
 end;
