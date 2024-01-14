@@ -43,7 +43,7 @@ Type
     Procedure WriteFloat32(Value: Float32);
     Procedure WriteFloat64(Value: Float64);
   strict protected
-    Procedure Write(const CurrentRow: Integer; const Rows: TCustomMatrixRows); override;
+    Procedure Write(const CurrentRow: Integer; const Rows: TVirtualMatrixRows); override;
   public
     Constructor Create(const FileName,FileLabel: String;
                        const MatrixLabels: array of String;
@@ -218,7 +218,7 @@ begin
   BinaryWriter.Write(Value);
 end;
 
-Procedure T4GMatrixWriter.Write(const CurrentRow: Integer; const Rows: TCustomMatrixRows);
+Procedure T4GMatrixWriter.Write(const CurrentRow: Integer; const Rows: TVirtualMatrixRows);
 begin
   case FilePrecision of
     ftFloat16: for var Mtrx := 0 to Count-1 do

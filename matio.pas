@@ -21,26 +21,50 @@ Type
   TFloat64MatrixRow = TArray<Float64>;
   TMatrixRow = TFloat64MatrixRow;
 
-  TCustomMatrixRows = Class
+  TVirtualMatrixRow = Class
+  // Read only matrix row
+  private
+    FSize: Integer;
+  strict protected
+    Procedure Init(Size: Integer);
+    Function GetValues(Column: Integer): Float64; virtual; abstract;
+  public
+    Function Total: Float64; overload;
+  public
+    Property Size: Integer read FSize;
+    Property Values[Column: Integer]: Float64 read GetValues; default;
+  end;
+
+  TVirtualMatrixRows = Class
+  // Read only matrix rows
   private
     FCount,FSize: Integer;
     RoundToZeroThreshold: Float64;
-    TargetMatrices: TArray<Integer>;
     Function DoGetValues(Matrix,Column: Integer): Float64; inline;
-    Procedure DoSetValues(Matrix,Column: Integer; Value: Float64); inline;
   strict protected
     Procedure Init(Count,Size: Integer);
     Function GetValues(Matrix,Column: Integer): Float64; virtual; abstract;
-    Procedure SetValues(Matrix,Column: Integer; Value: Float64); virtual; abstract;
   public
     Procedure GetRow(Matrix: Integer; var Row: TFloat32MatrixRow); overload;
     Procedure GetRow(Matrix: Integer; var Row: TFloat64MatrixRow); overload;
+    Function Total: Float64; overload;
+    Function Total(Matrix: Integer): Float64; overload;
   public
     Property Count: Integer read FCount;
     Property Size: Integer read FSize;
+    Property Values[Matrix,Column: Integer]: Float64 read DoGetValues; default;
+  end;
+
+  TCustomMatrixRows = Class(TVirtualMatrixRows)
+  // Base class for matrix rows with read and write access. Descendents must implement
+  // the in memory storage for matrix values.
+  private
+    TargetMatrices: TArray<Integer>;
+    Procedure DoSetValues(Matrix,Column: Integer; Value: Float64); inline;
+  strict protected
+    Procedure SetValues(Matrix,Column: Integer; Value: Float64); virtual; abstract;
+  public
     Property Values[Matrix,Column: Integer]: Float64 read DoGetValues write DoSetValues; default;
-    Function Total: Float64; overload;
-    Function Total(Matrix: Integer): Float64; overload;
   end;
 
   TFloat64MatrixRows = Class(TCustomMatrixRows)
@@ -150,20 +174,33 @@ Type
 
   TMatrixWriter = Class(TMatrixFiler)
   // TMatrixWriter is the abstract base class for all format specific matrix writer objects
+  private
+    Type
+      TMatrixRows = Class(TVirtualMatrixRows)
+      private
+        Values: array of TVirtualMatrixRow;
+      strict protected
+        Function GetValues(Matrix,Column: Integer): Float64; override;
+      end;
+    Var
+      MatrixRows: TMatrixRows;
   strict protected
     Constructor Create(const FileName: String; const Count,Size: Integer; const CreateStream: Boolean = true); overload;
   protected
-    Procedure Write(const CurrentRow: Integer; const Rows: TCustomMatrixRows); overload; virtual; abstract;
+    Procedure Write(const CurrentRow: Integer; const Rows: TVirtualMatrixRows); overload; virtual; abstract;
   public
     Class Var
       RoundToZeroThreshold: Float64;
   public
+    Procedure Write(const Row: TVirtualMatrixRow); overload;
     Procedure Write(const Row: TFloat64MatrixRow); overload;
     Procedure Write(const Row: TFloat32MatrixRow); overload;
+    Procedure Write(const Rows: array of TVirtualMatrixRow); overload;
     Procedure Write(const Rows: array of TFloat64MatrixRow); overload;
     Procedure Write(const Rows: array of TFloat32MatrixRow); overload;
-    Procedure Write(const Rows: TCustomMatrixRows); overload;
+    Procedure Write(const Rows: TVirtualMatrixRows); overload;
     Procedure Write(const Rows: TMatrixIterator); overload;
+    Destructor Destroy; override;
   end;
 
 Const
@@ -173,7 +210,26 @@ Const
 implementation
 ////////////////////////////////////////////////////////////////////////////////
 
-Function TCustomMatrixRows.DoGetValues(Matrix,Column: Integer): Float64;
+Procedure TVirtualMatrixRow.Init(Size: Integer);
+begin
+  FSize := Size;
+end;
+
+Function TVirtualMatrixRow.Total: Float64;
+begin
+  Result := 0.0;
+  for var Column := 0 to FSize-1 do Result := Result + GetValues(Column);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+
+Procedure TVirtualMatrixRows.Init(Count,Size: Integer);
+begin
+  FCount := Count;
+  FSize := Size;
+end;
+
+Function TVirtualMatrixRows.DoGetValues(Matrix,Column: Integer): Float64;
 begin
   if (Matrix < FCount) and (Column < FSize) then
   begin
@@ -182,6 +238,40 @@ begin
   end else
     Result := 0.0;
 end;
+
+Procedure TVirtualMatrixRows.GetRow(Matrix: Integer; var Row: TFloat32MatrixRow);
+begin
+  if FSize < Length(Row) then
+  begin
+    for var Column := 0 to FSize-1 do Row[Column] := DoGetValues(Matrix,Column);
+    for var Column := FSize to Length(Row)-1 do Row[Column] := 0.0;
+  end else
+    for var Column := 0 to Length(Row)-1 do Row[Column] := DoGetValues(Matrix,Column);
+end;
+
+Procedure TVirtualMatrixRows.GetRow(Matrix: Integer; var Row: TFloat64MatrixRow);
+begin
+  if FSize < Length(Row) then
+  begin
+    for var Column := 0 to FSize-1 do Row[Column] := DoGetValues(Matrix,Column);
+    for var Column := FSize to Length(Row)-1 do Row[Column] := 0.0;
+  end else
+    for var Column := 0 to Length(Row)-1 do Row[Column] := DoGetValues(Matrix,Column);
+end;
+
+Function TVirtualMatrixRows.Total: Float64;
+begin
+  Result := 0.0;
+  for var Matrix := 0 to FCount-1 do Result := Result + Total(Matrix);
+end;
+
+Function TVirtualMatrixRows.Total(Matrix: Integer): Float64;
+begin
+  Result := 0.0;
+  for var Column := 0 to FSize-1 do Result := Result + GetValues(Matrix,Column);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
 
 Procedure TCustomMatrixRows.DoSetValues(Matrix,Column: Integer; Value: Float64);
 begin
@@ -194,44 +284,6 @@ begin
     Matrix := TargetMatrices[Matrix];
     if (Matrix >= 0) and (Matrix < FCount) and (Column < FSize) then SetValues(Matrix,Column,Value);
   end;
-end;
-
-Procedure TCustomMatrixRows.Init(Count,Size: Integer);
-begin
-  FCount := Count;
-  FSize := Size;
-end;
-
-Procedure TCustomMatrixRows.GetRow(Matrix: Integer; var Row: TFloat32MatrixRow);
-begin
-  if FSize < Length(Row) then
-  begin
-    for var Column := 0 to FSize-1 do Row[Column] := DoGetValues(Matrix,Column);
-    for var Column := FSize to Length(Row)-1 do Row[Column] := 0.0;
-  end else
-    for var Column := 0 to Length(Row)-1 do Row[Column] := DoGetValues(Matrix,Column);
-end;
-
-Procedure TCustomMatrixRows.GetRow(Matrix: Integer; var Row: TFloat64MatrixRow);
-begin
-  if FSize < Length(Row) then
-  begin
-    for var Column := 0 to FSize-1 do Row[Column] := DoGetValues(Matrix,Column);
-    for var Column := FSize to Length(Row)-1 do Row[Column] := 0.0;
-  end else
-    for var Column := 0 to Length(Row)-1 do Row[Column] := DoGetValues(Matrix,Column);
-end;
-
-Function TCustomMatrixRows.Total: Float64;
-begin
-  Result := 0.0;
-  for var Matrix := 0 to FCount-1 do Result := Result + Total(Matrix);
-end;
-
-Function TCustomMatrixRows.Total(Matrix: Integer): Float64;
-begin
-  Result := 0.0;
-  for var Column := 0 to FSize-1 do Result := Result + GetValues(Matrix,Column);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -569,16 +621,34 @@ end;
 
 ////////////////////////////////////////////////////////////////////////////////
 
+Function TMatrixWriter.TMatrixRows.GetValues(Matrix: Integer; Column: Integer): Float64;
+begin
+  Result := Values[Matrix].Values[Column]
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+
 Constructor TMatrixWriter.Create(const FileName: String;
                                  const Count,Size: Integer;
                                  const CreateStream: Boolean = true);
 begin
   inherited Create;
   FFileName := ExpandFileName(FileName);
+  MatrixRows := TMatrixRows.Create;
+  MatrixRows.FSize := Size;
   if CreateStream then
   FileStream := TBufferedFileStream.Create(FFileName,fmCreate or fmShareDenyWrite,BufferSize);
   SetCount(Count);
   SetSize(Size);
+end;
+
+Procedure TMatrixWriter.Write(const Row: TVirtualMatrixRow);
+begin
+  MatrixRows.FCount := 1;
+  MatrixRows.FSize := FSize;
+  SetLength(MatrixRows.Values,1);
+  MatrixRows.Values[0] := Row;
+  Write(MatrixRows);
 end;
 
 Procedure TMatrixWriter.Write(const Row: TFloat64MatrixRow);
@@ -597,6 +667,19 @@ begin
   SetLength(Float32MatrixRows.FValues,1);
   Float32MatrixRows.FValues[0] := Row;
   Write(Float32MatrixRows);
+end;
+
+Procedure TMatrixWriter.Write(const Rows: array of TVirtualMatrixRow);
+begin
+  MatrixRows.FCount := Length(Rows);
+  MatrixRows.FSize := Rows[0].FSize;
+  SetLength(MatrixRows.Values,Length(Rows));
+  for var Matrix := low(Rows) to high(Rows) do
+  if Rows[Matrix].FSize = MatrixRows.FSize then
+    MatrixRows.Values[Matrix] := Rows[Matrix]
+  else
+    raise Exception.Create('Matrix rows must have the same size');
+  Write(MatrixRows);
 end;
 
 Procedure TMatrixWriter.Write(const Rows: array of TFloat64MatrixRow);
@@ -625,7 +708,7 @@ begin
   Write(Float32MatrixRows);
 end;
 
-Procedure TMatrixWriter.Write(const Rows: TCustomMatrixRows);
+Procedure TMatrixWriter.Write(const Rows: TVirtualMatrixRows);
 begin
   if Assigned(Rows) then
     if CurrentRow < Size then
@@ -656,6 +739,12 @@ begin
     write(Rows.Matrices)
   else
     raise Exception.Create('Invalid iteration count');
+end;
+
+Destructor TMatrixWriter.Destroy;
+begin
+  MatrixRows.Free;
+  inherited Destroy;
 end;
 
 end.

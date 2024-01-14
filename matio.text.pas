@@ -50,7 +50,7 @@ Type
     Class Procedure SetRowLabel(RowLabel: String); static;
     Class Procedure SetColumnLabel(ColumnLabel: String); static;
   strict protected
-    Procedure Write(const CurrentRow: Integer; const Rows: TCustomMatrixRows); override;
+    Procedure Write(const CurrentRow: Integer; const Rows: TVirtualMatrixRows); override;
   public
     Class Constructor Create;
   public
@@ -271,7 +271,7 @@ begin
   end;
 end;
 
-Procedure TTextMatrixWriter.Write(const CurrentRow: Integer; const Rows: TCustomMatrixRows);
+Procedure TTextMatrixWriter.Write(const CurrentRow: Integer; const Rows: TVirtualMatrixRows);
 begin
   for var Column := 0 to Size-1 do
   begin

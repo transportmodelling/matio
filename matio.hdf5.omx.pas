@@ -58,7 +58,7 @@ Type
       Row64: TFloat64MatrixRow;
       ChunkSize: array[0..1] of UInt64;
   strict protected
-    Procedure Write(const CurrentRow: Integer; const Rows: TCustomMatrixRows); override;
+    Procedure Write(const CurrentRow: Integer; const Rows: TVirtualMatrixRows); override;
   public
     Const
       OMXversion = '0.2';
@@ -232,7 +232,7 @@ begin
   Hdf5Dll.H5Sclose(SpaceId);
 end;
 
-Procedure TOMXMatrixWriter.Write(const CurrentRow: Integer; const Rows: TCustomMatrixRows);
+Procedure TOMXMatrixWriter.Write(const CurrentRow: Integer; const Rows: TVirtualMatrixRows);
 Var
   Offset: array[0..1] of UInt64;
 begin

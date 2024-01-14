@@ -43,7 +43,7 @@ Type
     Procedure WriteToFile(Value,NBytes: Integer);
     Procedure Write(const CurrentMatrix,CurrentRow,LastColumn: Integer; const Row: array of Integer); overload;
   strict protected
-    Procedure Write(const CurrentRow: Integer; const Rows: TCustomMatrixRows); overload; override;
+    Procedure Write(const CurrentRow: Integer; const Rows: TVirtualMatrixRows); overload; override;
   public
     Constructor Create(Const FileName,FileLabel: String;
                        Const Count,Size: Integer;
@@ -269,7 +269,7 @@ begin
   end;
 end;
 
-Procedure TMinutpMatrixWriter.Write(const CurrentRow: Integer; const Rows: TCustomMatrixRows);
+Procedure TMinutpMatrixWriter.Write(const CurrentRow: Integer; const Rows: TVirtualMatrixRows);
 Var
   IntValue: Int32;
 begin
