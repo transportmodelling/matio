@@ -64,6 +64,8 @@ Type
   strict protected
     Procedure SetValues(Matrix,Column: Integer; Value: Float64); virtual; abstract;
   public
+    Procedure Initialize(Value: Float64 = 0.0);
+  public
     Property Values[Matrix,Column: Integer]: Float64 read DoGetValues write DoSetValues; default;
   end;
 
@@ -284,6 +286,13 @@ begin
     Matrix := TargetMatrices[Matrix];
     if (Matrix >= 0) and (Matrix < FCount) and (Column < FSize) then SetValues(Matrix,Column,Value);
   end;
+end;
+
+Procedure TCustomMatrixRows.Initialize(Value: Float64 = 0.0);
+begin
+  for var Matrix := 0 to FCount-1 do
+  for var Column := 0 to FSize-1 do
+  SetValues(Matrix,Column,Value);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
