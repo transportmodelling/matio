@@ -17,6 +17,7 @@ Uses
 Type
   TMatrixRowsReader = Class(TFloat64MatrixRows)
   private
+    CurrentRow: Integer;
     Reader: TMatrixReader;
   public
     Constructor Create(const [ref] Properties: TPropertySet;
@@ -84,7 +85,8 @@ end;
 
 Procedure TMatrixRowsReader.Read;
 begin
-  Reader.Read(Self);
+  if CurrentRow < Reader.Size then Reader.Read(Self) else Initialize;
+  Inc(CurrentRow);
 end;
 
 Destructor TMatrixRowsReader.Destroy;
