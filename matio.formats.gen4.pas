@@ -17,8 +17,8 @@ Uses
 Type
   T4GMatrixReaderFormat = Class(TIndexedMatrixReaderFormat)
   public
-    Class Function Format: String; override;
-    Class Function HasFormat(const Header: TBytes): Boolean; override;
+    Function Format: String; override;
+    Function HasFormat(const Header: TBytes): Boolean; override;
   public
     Function CreateReader(const [ref] Properties: TPropertySet): TMatrixReader; override;
   end;
@@ -30,10 +30,10 @@ Type
       CompressionProperty = 'compress';
       CompressionOptions: array[T4GCompression] of String = ('none','gzip');
   strict protected
-    Class Procedure AppendFormatProperties(const [ref] Properties: TPropertySet); override;
+    Procedure AppendFormatProperties(const [ref] Properties: TPropertySet); override;
   public
-    Class Function Format: String; override;
-    Class Function PropertyPickList(const PropertyName: string; out PickList: TStringDynArray): Boolean; override;
+    Function Format: String; override;
+    Function PropertyPickList(const PropertyName: string; out PickList: TStringDynArray): Boolean; override;
   public
     Function CreateWriter(const [ref] Properties: TPropertySet;
                           const FileLabel: string;
@@ -45,12 +45,12 @@ Type
 implementation
 ////////////////////////////////////////////////////////////////////////////////
 
-Class Function T4GMatrixReaderFormat.Format: String;
+Function T4GMatrixReaderFormat.Format: String;
 begin
   Result := '4g';
 end;
 
-Class Function T4GMatrixReaderFormat.HasFormat(const Header: TBytes): Boolean;
+Function T4GMatrixReaderFormat.HasFormat(const Header: TBytes): Boolean;
 begin
   if Length(Header) >= 4 then
     if TEncoding.ASCII.GetString(Copy(Header,0,2)) = '4G' then
@@ -74,19 +74,19 @@ end;
 
 ////////////////////////////////////////////////////////////////////////////////
 
-Class Function T4GMatrixWriterFormat.Format: String;
+Function T4GMatrixWriterFormat.Format: String;
 begin
   Result := '4g';
 end;
 
-Class Procedure T4GMatrixWriterFormat.AppendFormatProperties(const [ref] Properties: TPropertySet);
+Procedure T4GMatrixWriterFormat.AppendFormatProperties(const [ref] Properties: TPropertySet);
 begin
   Properties.Append(PrecisionProperty,PrecisionLabels[ftFloat32]);
   Properties.Append(CompressionProperty,CompressionOptions[cpGZip]);
 end;
 
-Class Function T4GMatrixWriterFormat.PropertyPickList(const PropertyName: string;
-                                                      out PickList: TStringDynArray): Boolean;
+Function T4GMatrixWriterFormat.PropertyPickList(const PropertyName: string;
+                                                out PickList: TStringDynArray): Boolean;
 begin
   if not inherited PropertyPickList(PropertyName,PickList) then
   if SameText(PropertyName,PrecisionProperty) then

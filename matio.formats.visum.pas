@@ -17,8 +17,8 @@ Uses
 Type
   TVisumMatrixReaderFormat = Class(TIndexedMatrixReaderFormat)
   public
-    Class Function Format: String; override;
-    Class Function HasFormat(const Header: TBytes): Boolean; override;
+    Function Format: String; override;
+    Function HasFormat(const Header: TBytes): Boolean; override;
   public
     Function CreateReader(const [ref] Properties: TPropertySet): TMatrixReader; override;
   end;
@@ -27,12 +27,12 @@ Type
 implementation
 ////////////////////////////////////////////////////////////////////////////////
 
-Class Function TVisumMatrixReaderFormat.Format: String;
+Function TVisumMatrixReaderFormat.Format: String;
 begin
   Result := 'visum';
 end;
 
-Class Function TVisumMatrixReaderFormat.HasFormat(const Header: TBytes): Boolean;
+Function TVisumMatrixReaderFormat.HasFormat(const Header: TBytes): Boolean;
 begin
   Result := false;
   if Length(Header) >= 5 then

@@ -17,23 +17,24 @@ Uses
 Type
   TMatrixFormat = Class
   strict protected
-    Class Procedure AppendFormatProperties(const [ref] Properties: TPropertySet); virtual;
+    Procedure AppendFormatProperties(const [ref] Properties: TPropertySet); virtual;
   strict protected
     Function ExtendProperties(const [ref] Properties: TPropertySet): TPropertySet;
   public
     Const
       FileProperty = 'file';
       FormatProperty = 'format';
-    Class Function Format: String; virtual; abstract;
-    Class Function Available: Boolean; virtual;
-    Class Function FormatProperties(ReadOnly: Boolean = true): TPropertySet;
-    Class Function PropertyPickList(const PropertyName: string; out PickList: TStringDynArray): Boolean; virtual;
-    Class Function TidyProperties(const [ref] Properties: TPropertySet; ReadOnly: Boolean = true): TPropertySet;
+    Function Format: String; virtual; abstract;
+    Function Available: Boolean; virtual;
+    Function FormatProperties(ReadOnly: Boolean = true): TPropertySet;
+    Function PropertyPickList(const PropertyName: string; out PickList: TStringDynArray): Boolean; virtual;
+    Function TidyProperties(const [ref] Properties: TPropertySet; ReadOnly: Boolean = true): TPropertySet;
   end;
 
   TMatrixReaderFormat = Class(TMatrixFormat)
   public
-    Class Function HasFormat(const Header: TBytes): Boolean; virtual;
+    Function HasFormat(const FileExtension: String): Boolean; overload; virtual;
+    Function HasFormat(const Header: TBytes): Boolean; overload; virtual;
   end;
 
   TIndexedMatrixReaderFormat = Class(TMatrixReaderFormat)
@@ -76,8 +77,15 @@ Type
     Procedure RegisterFormat(const Format: TMatrixWriterFormat); overload;
     // Query registered formats
     Function RegisteredReaderFormats(ByIndex,ByLabel: Boolean): TStringDynArray;
-    Function ReaderFormat(const Format: string): TMatrixFormat; overload;
-    Function ReaderFormat(const Header: TBytes): TMatrixFormat; overload;
+    Function ReaderFormat(const Format: string;
+                          const IndexedFormats: Boolean = true;
+                          const LabeledFormats: Boolean= true): TMatrixFormat; overload;
+    Function ReaderFormat(const FileName: TFileName;
+                          const IndexedFormats: Boolean = true;
+                          const LabeledFormats: Boolean= true): TMatrixFormat; overload;
+    Function ReaderFormat(const Header: TBytes;
+                          const IndexedFormats: Boolean = true;
+                          const LabeledFormats: Boolean= true): TMatrixFormat; overload;
     Function RegisteredWriterFormats: TStringDynArray;
     Function WriterFormat(const Format: string): TMatrixFormat;
     // Create matrix reader/writer
@@ -102,7 +110,7 @@ implementation
 Uses
   matio.formats.text, matio.formats.gen4, matio.formats.minutp, matio.formats.visum, matio.formats.omx;
 
-Class Procedure TMatrixFormat.AppendFormatProperties(const [ref] Properties: TPropertySet);
+Procedure TMatrixFormat.AppendFormatProperties(const [ref] Properties: TPropertySet);
 begin
 end;
 
@@ -118,12 +126,12 @@ begin
   end;
 end;
 
-Class Function TMatrixFormat.Available: Boolean;
+Function TMatrixFormat.Available: Boolean;
 begin
   Result := true;
 end;
 
-Class Function TMatrixFormat.FormatProperties(ReadOnly: Boolean = true): TPropertySet;
+Function TMatrixFormat.FormatProperties(ReadOnly: Boolean = true): TPropertySet;
 begin
   Result := TPropertySet.Create(ReadOnly);
   Result.Append(FileProperty,'');
@@ -131,7 +139,7 @@ begin
   AppendFormatProperties(Result);
 end;
 
-Class Function TMatrixFormat.PropertyPickList(const PropertyName: string; out PickList: TStringDynArray): Boolean;
+Function TMatrixFormat.PropertyPickList(const PropertyName: string; out PickList: TStringDynArray): Boolean;
 begin
   if PropertyName = FormatProperty then
   begin
@@ -141,7 +149,7 @@ begin
     Result := false;
 end;
 
-Class Function TMatrixFormat.TidyProperties(const [ref] Properties: TPropertySet; ReadOnly: Boolean = true): TPropertySet;
+Function TMatrixFormat.TidyProperties(const [ref] Properties: TPropertySet; ReadOnly: Boolean = true): TPropertySet;
 Var
   Value: String;
 begin
@@ -165,7 +173,12 @@ end;
 
 ////////////////////////////////////////////////////////////////////////////////
 
-Class Function TMatrixReaderFormat.HasFormat(const Header: TBytes): Boolean;
+Function TMatrixReaderFormat.HasFormat(const FileExtension: String): Boolean;
+begin
+  Result := false;
+end;
+
+Function TMatrixReaderFormat.HasFormat(const Header: TBytes): Boolean;
 begin
   Result := false;
 end;
@@ -219,27 +232,54 @@ begin
   Result := Result + [LabeledReaderFormats[Format].Format];
 end;
 
-Function TMatrixFormats.ReaderFormat(const Format: string): TMatrixFormat;
+Function TMatrixFormats.ReaderFormat(const Format: string;
+                                     const IndexedFormats: Boolean = true;
+                                     const LabeledFormats: Boolean= true): TMatrixFormat;
 begin
   Result := nil;
   // Indexed reader formats
+  if IndexedFormats then
   for var ReaderFormat := low(IndexedReaderFormats) to high(IndexedReaderFormats) do
   if SameText(IndexedReaderFormats[ReaderFormat].Format,Format) then
   Exit(IndexedReaderFormats[ReaderFormat]);
   // Labeled reader formats
+  if LabeledFormats then
   for var ReaderFormat := low(LabeledReaderFormats) to high(LabeledReaderFormats) do
   if SameText(LabeledReaderFormats[ReaderFormat].Format,Format) then
   Exit(LabeledReaderFormats[ReaderFormat]);
 end;
 
-Function TMatrixFormats.ReaderFormat(const Header: TBytes): TMatrixFormat;
+Function TMatrixFormats.ReaderFormat(const FileName: TFileName;
+                                     const IndexedFormats: Boolean = true;
+                                     const LabeledFormats: Boolean= true): TMatrixFormat;
+begin
+  Result := nil;
+  // Get file extension
+  var FileExtension := ExtractFileExt(FileName);
+  // Indexed reader formats
+  if IndexedFormats then
+  for var ReaderFormat := low(IndexedReaderFormats) to high(IndexedReaderFormats) do
+  if IndexedReaderFormats[ReaderFormat].HasFormat(FileExtension) then
+  Exit(IndexedReaderFormats[ReaderFormat]);
+  // Labeled reader formats
+  if LabeledFormats then
+  for var ReaderFormat := low(LabeledReaderFormats) to high(LabeledReaderFormats) do
+  if LabeledReaderFormats[ReaderFormat].HasFormat(FileExtension) then
+  Exit(LabeledReaderFormats[ReaderFormat]);
+end;
+
+Function TMatrixFormats.ReaderFormat(const Header: TBytes;
+                                     const IndexedFormats: Boolean = true;
+                                     const LabeledFormats: Boolean= true): TMatrixFormat;
 begin
   Result := nil;
   // Indexed reader formats
+  if IndexedFormats then
   for var ReaderFormat := low(IndexedReaderFormats) to high(IndexedReaderFormats) do
   if IndexedReaderFormats[ReaderFormat].HasFormat(Header) then
   Exit(IndexedReaderFormats[ReaderFormat]);
   // Labeled reader formats
+  if LabeledFormats then
   for var ReaderFormat := low(LabeledReaderFormats) to high(LabeledReaderFormats) do
   if LabeledReaderFormats[ReaderFormat].HasFormat(Header) then
   Exit(LabeledReaderFormats[ReaderFormat]);

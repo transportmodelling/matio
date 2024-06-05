@@ -17,8 +17,9 @@ Uses
 Type
   TOMXMatrixReaderFormat = Class(TLabeledMatrixReaderFormat)
   public
-    Class Function Format: String; override;
+    Function Format: String; override;
   public
+    Function HasFormat(const FileExtension: String): Boolean; override;
     Function CreateReader(const [ref] Properties: TPropertySet; const Selection: array of String): TMatrixReader; override;
   end;
 
@@ -27,11 +28,11 @@ Type
     Const
       PrecisionProperty = 'prec';
   strict protected
-    Class Procedure AppendFormatProperties(const [ref] Properties: TPropertySet); override;
+    Procedure AppendFormatProperties(const [ref] Properties: TPropertySet); override;
   public
-    Class Function Format: String; override;
-    Class Function Available: Boolean; override;
-    Class Function PropertyPickList(const PropertyName: string; out PickList: TStringDynArray): Boolean; override;
+    Function Format: String; override;
+    Function Available: Boolean; override;
+    Function PropertyPickList(const PropertyName: string; out PickList: TStringDynArray): Boolean; override;
   public
     Function CreateWriter(const [ref] Properties: TPropertySet;
                           const FileLabel: string;
@@ -43,9 +44,14 @@ Type
 implementation
 ////////////////////////////////////////////////////////////////////////////////
 
-Class Function TOMXMatrixReaderFormat.Format: String;
+Function TOMXMatrixReaderFormat.Format: String;
 begin
   Result := 'omx';
+end;
+
+Function TOMXMatrixReaderFormat.HasFormat(const FileExtension: String): Boolean;
+begin
+  Result := SameText(FileExtension,'.omx');
 end;
 
 Function TOMXMatrixReaderFormat.CreateReader(const [ref] Properties: TPropertySet; const Selection: array of String): TMatrixReader;
@@ -58,12 +64,12 @@ end;
 
 ////////////////////////////////////////////////////////////////////////////////
 
-Class Procedure TOMXMatrixWriterFormat.AppendFormatProperties(const [ref] Properties: TPropertySet);
+Procedure TOMXMatrixWriterFormat.AppendFormatProperties(const [ref] Properties: TPropertySet);
 begin
   Properties.Append(PrecisionProperty,PrecisionLabels[ftFloat32]);
 end;
 
-Class Function TOMXMatrixWriterFormat.PropertyPickList(const PropertyName: string; out PickList: TStringDynArray): Boolean;
+Function TOMXMatrixWriterFormat.PropertyPickList(const PropertyName: string; out PickList: TStringDynArray): Boolean;
 begin
   if not inherited PropertyPickList(PropertyName,PickList) then
   if SameText(PropertyName,PrecisionProperty) then
@@ -74,12 +80,12 @@ begin
     Result := false;
 end;
 
-Class Function TOMXMatrixWriterFormat.Format: String;
+Function TOMXMatrixWriterFormat.Format: String;
 begin
   Result := 'omx';
 end;
 
-Class Function TOMXMatrixWriterFormat.Available: Boolean;
+Function TOMXMatrixWriterFormat.Available: Boolean;
 begin
   Result := TOMXMatrixWriter.Available;
 end;

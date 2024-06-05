@@ -19,10 +19,10 @@ Type
   private
     TextFormatSettings: TFormatSettings;
   strict protected
-    Class Procedure AppendFormatProperties(const [ref] Properties: TPropertySet); override;
+    Procedure AppendFormatProperties(const [ref] Properties: TPropertySet); override;
   public
-    Class Function Format: String; override;
-    Class Function PropertyPickList(const PropertyName: string; out PickList: TStringDynArray): Boolean; override;
+    Function Format: String; override;
+    Function PropertyPickList(const PropertyName: string; out PickList: TStringDynArray): Boolean; override;
   public
     Function CreateReader(const [ref] Properties: TPropertySet): TMatrixReader; override;
   end;
@@ -31,10 +31,10 @@ Type
   private
     TextFormatSettings: TFormatSettings;
   strict protected
-    Class Procedure AppendFormatProperties(const [ref] Properties: TPropertySet); override;
+    Procedure AppendFormatProperties(const [ref] Properties: TPropertySet); override;
   public
-    Class Function Format: String; override;
-    Class Function PropertyPickList(const PropertyName: string; out PickList: TStringDynArray): Boolean; override;
+    Function Format: String; override;
+    Function PropertyPickList(const PropertyName: string; out PickList: TStringDynArray): Boolean; override;
   public
     Function CreateWriter(const [ref] Properties: TPropertySet;
                           const FileLabel: string;
@@ -58,12 +58,12 @@ Const
   DelimiterOptions: array[TDelimiter] of String = ('comma','tab','semicolon','space');
   BOMProperty = 'bom';
 
-Class Function TTextMatrixReaderFormat.Format: String;
+Function TTextMatrixReaderFormat.Format: String;
 begin
   Result := 'txt';
 end;
 
-Class Procedure TTextMatrixReaderFormat.AppendFormatProperties(const [ref] Properties: TPropertySet);
+Procedure TTextMatrixReaderFormat.AppendFormatProperties(const [ref] Properties: TPropertySet);
 begin
   Properties.Append(EncodingProperty,'ascii');
   Properties.Append(DelimiterProperty,DelimiterOptions[Tab]);
@@ -72,7 +72,7 @@ begin
   Properties.Append(ThousandSeparatorProperty,SeparatorOptions[0]);
 end;
 
-Class Function TTextMatrixReaderFormat.PropertyPickList(const PropertyName: string;
+Function TTextMatrixReaderFormat.PropertyPickList(const PropertyName: string;
                                                         out PickList: TStringDynArray): Boolean;
 begin
   if not inherited PropertyPickList(PropertyName,PickList) then
@@ -162,12 +162,12 @@ end;
 
 ////////////////////////////////////////////////////////////////////////////////
 
-Class Function TTextMatrixWriterFormat.Format: String;
+Function TTextMatrixWriterFormat.Format: String;
 begin
   Result := 'txt';
 end;
 
-Class Procedure TTextMatrixWriterFormat.AppendFormatProperties(const [ref] Properties: TPropertySet);
+Procedure TTextMatrixWriterFormat.AppendFormatProperties(const [ref] Properties: TPropertySet);
 begin
   Properties.Append(EncodingProperty,'ascii');
   Properties.Append(DelimiterProperty,DelimiterOptions[Tab]);
@@ -178,8 +178,8 @@ begin
   Properties.Append(BOMProperty,false.ToString(TUseBoolStrs.True));
 end;
 
-Class Function TTextMatrixWriterFormat.PropertyPickList(const PropertyName: string;
-                                                        out PickList: TStringDynArray): Boolean;
+Function TTextMatrixWriterFormat.PropertyPickList(const PropertyName: string;
+                                                  out PickList: TStringDynArray): Boolean;
 begin
   if not inherited PropertyPickList(PropertyName,PickList) then
   if SameText(PropertyName,DelimiterProperty) then

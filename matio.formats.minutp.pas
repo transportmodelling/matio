@@ -17,19 +17,19 @@ Uses
 Type
   TMinutpMatrixReaderFormat = Class(TIndexedMatrixReaderFormat)
   strict protected
-    Class Procedure AppendFormatProperties(const [ref] Properties: TPropertySet); override;
+    Procedure AppendFormatProperties(const [ref] Properties: TPropertySet); override;
   public
-    Class Function Format: String; override;
-    Class Function HasFormat(const Header: TBytes): Boolean; override;
+    Function Format: String; override;
+    Function HasFormat(const Header: TBytes): Boolean; override;
   public
     Function CreateReader(const [ref] Properties: TPropertySet): TMatrixReader; override;
   end;
 
   TMinutpMatrixWriterFormat = Class(TMatrixWriterFormat)
   strict protected
-    Class Procedure AppendFormatProperties(const [ref] Properties: TPropertySet); override;
+    Procedure AppendFormatProperties(const [ref] Properties: TPropertySet); override;
   public
-    Class Function Format: String; override;
+    Function Format: String; override;
   public
     Function CreateWriter(const [ref] Properties: TPropertySet;
                           const FileLabel: string;
@@ -44,12 +44,12 @@ implementation
 Const
   PrecisionProperty = 'prec';
 
-Class Function TMinutpMatrixReaderFormat.Format: String;
+Function TMinutpMatrixReaderFormat.Format: String;
 begin
   Result := 'mtp';
 end;
 
-Class Function TMinutpMatrixReaderFormat.HasFormat(const Header: TBytes): Boolean;
+Function TMinutpMatrixReaderFormat.HasFormat(const Header: TBytes): Boolean;
 begin
   if Length(Header) >= 74 then
   begin
@@ -64,7 +64,7 @@ begin
     Result := false;
 end;
 
-Class Procedure TMinutpMatrixReaderFormat.AppendFormatProperties(const [ref] Properties: TPropertySet);
+Procedure TMinutpMatrixReaderFormat.AppendFormatProperties(const [ref] Properties: TPropertySet);
 begin
   Properties.Append(PrecisionProperty,'0');
 end;
@@ -81,12 +81,12 @@ end;
 
 ////////////////////////////////////////////////////////////////////////////////
 
-Class Function TMinutpMatrixWriterFormat.Format: String;
+Function TMinutpMatrixWriterFormat.Format: String;
 begin
   Result := 'mtp';
 end;
 
-Class Procedure TMinutpMatrixWriterFormat.AppendFormatProperties(const [ref] Properties: TPropertySet);
+Procedure TMinutpMatrixWriterFormat.AppendFormatProperties(const [ref] Properties: TPropertySet);
 begin
   Properties.Append(PrecisionProperty,'');
 end;
