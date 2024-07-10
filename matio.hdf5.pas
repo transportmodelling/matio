@@ -16,9 +16,6 @@ Uses
 
 Type
   THdf5Dll = Class
-  public
-    Class Var
-      Path: String;
   private
     DllHandle: THandle;
     FH5P_CLS_GROUP_CREATE_ID,FH5P_CLS_DATASET_CREATE_ID,
@@ -69,7 +66,7 @@ Type
     FH5close: Function: Integer; cdecl;
     Function GetDllMethod(MethodName: String): Pointer;
   public
-    Constructor Create;
+    Constructor Create(const DllPath: string);
     // Dll methods
     Procedure H5open;
     Function H5Fcreate(FileName: AnsiString; Flags: UInt32; fcpl_id: Int64; fapl_id : Int64): Int64;
@@ -140,36 +137,37 @@ Type
 
   THdf5MatrixReader = Class(TMatrixReader)
   protected
-    Hdf5Dll: THdf5Dll;
     Hdf5FileId: Int64;
     Constructor Create(const FileName: string); overload;
   public
-    Class Constructor Create;
+    Class Function Available: Boolean;
   public
     Destructor Destroy; override;
   end;
 
   THdf5MatrixWriter = Class(TMatrixWriter)
   protected
-    Hdf5Dll: THdf5Dll;
     Hdf5FileId: Int64;
     Constructor Create(const FileName,FileLabel: string;
                        const MatrixLabels: array of String;
                        const Size: Integer); overload;
   public
-    Class Constructor Create;
+    Class Function Available: Boolean;
   public
     Destructor Destroy; override;
   end;
+
+Var
+  Hdf5Dll: THdf5Dll = nil;
 
 ////////////////////////////////////////////////////////////////////////////////
 implementation
 ////////////////////////////////////////////////////////////////////////////////
 
-Constructor THdf5Dll.Create;
+Constructor THdf5Dll.Create(const DllPath: string);
 begin
   inherited Create;
-  DllHandle := SafeLoadLibrary(Path);
+  DllHandle := SafeLoadLibrary(DllPath);
   if DllHandle <> 0 then
   begin
     // Load Hdf5 dll
@@ -532,35 +530,28 @@ end;
 
 ////////////////////////////////////////////////////////////////////////////////
 
-Class Constructor THdf5MatrixReader.Create;
+Class Function THdf5MatrixReader.Available: Boolean;
 begin
-  var FileName := ExtractFileDir(Paramstr(0)) + '\hdf5.dll';
-  if FileExists(FileName) then THdf5Dll.Path := FileName;
+  Result := Assigned(Hdf5Dll);
 end;
 
 Constructor THdf5MatrixReader.Create(const FileName: string);
 begin
   inherited Create(FileName,false);
-  Hdf5Dll := THdf5Dll.Create;
   Hdf5FileId := Hdf5Dll.H5Fopen(FileName,Hdf5Dll.H5F_ACC_RDONLY,Hdf5Dll.H5P_DEFAULT);
 end;
 
 Destructor THdf5MatrixReader.Destroy;
 begin
-  if Hdf5Dll <> nil then
-  begin
-    Hdf5Dll.H5Fclose(Hdf5FileId);
-    Hdf5Dll.Free;
-  end;
+  Hdf5Dll.H5Fclose(Hdf5FileId);
   inherited Destroy;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
 
-Class Constructor THdf5MatrixWriter.Create;
+Class Function THdf5MatrixWriter.Available: Boolean;
 begin
-  var FileName := ExtractFileDir(Paramstr(0)) + '\hdf5.dll';
-  if FileExists(FileName) then THdf5Dll.Path := FileName;
+  Result := Assigned(Hdf5Dll);
 end;
 
 Constructor THdf5MatrixWriter.Create(const FileName,FileLabel: string;
@@ -568,18 +559,18 @@ Constructor THdf5MatrixWriter.Create(const FileName,FileLabel: string;
                                      const Size: Integer);
 begin
   inherited Create(FileName,Length(MatrixLabels),Size,false);
-  Hdf5Dll := THdf5Dll.Create;
   Hdf5FileId := Hdf5Dll.H5Fcreate(FileName,Hdf5Dll.H5F_ACC_TRUNC,Hdf5Dll.H5P_DEFAULT,Hdf5Dll.H5P_DEFAULT);
 end;
 
 Destructor THdf5MatrixWriter.Destroy;
 begin
-  if Hdf5Dll <> nil then
-  begin
-    Hdf5Dll.H5Fclose(Hdf5FileId);
-    Hdf5Dll.Free;
-  end;
+  Hdf5Dll.H5Fclose(Hdf5FileId);
   inherited Destroy;
 end;
 
+Initialization
+  var DllPath := ExtractFileDir(Paramstr(0)) + '\hdf5.dll';
+  if FileExists(DllPath) then Hdf5Dll := THdf5Dll.Create(DllPath);
+Finalization
+  Hdf5Dll.Free;
 end.

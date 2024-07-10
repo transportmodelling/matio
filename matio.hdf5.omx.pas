@@ -24,7 +24,7 @@ Type
     Const
       Single: array[0..1] of UInt64 = (1,1);
     Var
-      FOMXVersion: AnsiString;
+      FVersion: AnsiString;
       Shape: array[0..1] of Integer;
       ChunkSize: array[0..1] of UInt64;
       RowSpaceId: Int64;
@@ -35,15 +35,13 @@ Type
   protected
     Procedure Read(const CurrentRow: Integer; const Rows: TCustomMatrixRows); override;
   public
-    Class Function Available: Boolean;
-  public
     // A list of labels for the matrices to be read is passed as a constructor argument
     // to enable indexed access. The index to use for a specific matrix is the index of its
     // name in the list of matrix labels.
     Constructor Create(const FileName: String; const MatrixLabels: array of String); overload;
     Destructor Destroy; override;
   public
-    Property OMXVersion: AnsiString read FOMXVersion;
+    Property Version: AnsiString read FVersion;
   end;
 
   TOMXMatrixWriter = Class(THdf5MatrixWriter)
@@ -51,7 +49,7 @@ Type
     Const
       Single: array[0..1] of UInt64 = (1,1);
     Var
-      FPrecision: TOMXPrecision;
+      FPrecision: TFloatType;
       RowSpaceId: Int64;
       MatrixDataSetIds,MatrixDataSpaceIds: array of Int64;
       Row32: TFloat32MatrixRow;
@@ -62,29 +60,23 @@ Type
   public
     Const
       OMXversion = '0.2';
-    Class Function Available: Boolean;
     Constructor Create(const FileName,FileLabel: string;
                        const MatrixLabels: array of String;
                        const Size: Integer;
                        const Precision: TOMXPrecision = ftFloat32); overload;
     Destructor Destroy; override;
   public
-    Property Precision: TOMXPrecision read FPrecision;
+    Property Precision: TFloatType read FPrecision;
   end;
 
 ////////////////////////////////////////////////////////////////////////////////
 implementation
 ////////////////////////////////////////////////////////////////////////////////
 
-Class Function TOMXMatrixReader.Available: Boolean;
-begin
-  Result := FileExists(THdf5Dll.Path);
-end;
-
 Constructor TOMXMatrixReader.Create(const FileName: String; const MatrixLabels: array of String);
 begin
   inherited Create(FileName);
-  Hdf5Dll.ReadStringAttribute(Hdf5FileId,'/','OMX_VERSION',FOMXVersion);
+  Hdf5Dll.ReadStringAttribute(Hdf5FileId,'/','OMX_VERSION',FVersion);
   Hdf5Dll.ReadIntArrayAttribute(Hdf5FileId,'/','SHAPE',Shape);
   SetCount(Length(MatrixLabels));
   SetSize(Shape[1]);
@@ -166,11 +158,6 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
-
-Class Function TOMXMatrixWriter.Available: Boolean;
-begin
-  Result := FileExists(THdf5Dll.Path);
-end;
 
 Constructor TOMXMatrixWriter.Create(const FileName,FileLabel: string;
                                     const MatrixLabels: array of String;
