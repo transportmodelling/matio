@@ -21,7 +21,6 @@ Type
   public
     Function Format: String; override;
     Function HasFormat(const Header: TBytes): Boolean; override;
-  public
     Function CreateReader(const [ref] Properties: TPropertySet): TMatrixReader; override;
   end;
 
@@ -30,7 +29,6 @@ Type
     Procedure AppendFormatProperties(const [ref] Properties: TPropertySet); override;
   public
     Function Format: String; override;
-  public
     Function CreateWriter(const [ref] Properties: TPropertySet;
                           const FileLabel: string;
                           const MatrixLabels: array of String;

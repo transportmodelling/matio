@@ -18,7 +18,7 @@ Type
   TOMXMatrixReaderFormat = Class(TLabeledMatrixReaderFormat)
   public
     Function Format: String; override;
-  public
+    Function Available: Boolean; override;
     Function HasFormat(const FileExtension: String): Boolean; override;
     Function CreateReader(const [ref] Properties: TPropertySet; const Selection: array of String): TMatrixReader; override;
   end;
@@ -33,7 +33,6 @@ Type
     Function Format: String; override;
     Function Available: Boolean; override;
     Function PropertyPickList(const PropertyName: string; out PickList: TStringDynArray): Boolean; override;
-  public
     Function CreateWriter(const [ref] Properties: TPropertySet;
                           const FileLabel: string;
                           const MatrixLabels: array of String;
@@ -47,6 +46,11 @@ implementation
 Function TOMXMatrixReaderFormat.Format: String;
 begin
   Result := 'omx';
+end;
+
+Function TOMXMatrixReaderFormat.Available: Boolean;
+begin
+  Result := TOMXMatrixReader.Available;
 end;
 
 Function TOMXMatrixReaderFormat.HasFormat(const FileExtension: String): Boolean;

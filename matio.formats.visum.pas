@@ -19,7 +19,6 @@ Type
   public
     Function Format: String; override;
     Function HasFormat(const Header: TBytes): Boolean; override;
-  public
     Function CreateReader(const [ref] Properties: TPropertySet): TMatrixReader; override;
   end;
 
