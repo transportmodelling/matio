@@ -19,6 +19,8 @@ Type
   private
     CurrentRow: Integer;
     Reader: TMatrixReader;
+    Function GetFileLabel: String;
+    Function GetMatrixLabels(Matrix: Integer): String;
   public
     Constructor Create(const [ref] Properties: TPropertySet;
                        const Count,Size: Integer); overload;
@@ -30,6 +32,9 @@ Type
                        const Size: Integer); overload;
     Procedure Read;
     Destructor Destroy; override;
+  public
+    Property FileLabel: String read GetFileLabel;
+    Property MatrixLabels[Matrix: Integer]: String read GetMatrixLabels;
   end;
 
   TMatrixRowsWriter = Class(TFloat64MatrixRows)
@@ -81,6 +86,16 @@ begin
     Allocate(Length(Selection),Size)
   else
     raise Exception.Create('Error opening matrix file');
+end;
+
+Function TMatrixRowsReader.GetFileLabel: String;
+begin
+  Result := Reader.FileLabel;
+end;
+
+Function TMatrixRowsReader.GetMatrixLabels(Matrix: Integer): String;
+begin
+  Result := Reader.MatrixLabels[Matrix];
 end;
 
 Procedure TMatrixRowsReader.Read;
