@@ -35,6 +35,15 @@ Type
     Property Values[Column: Integer]: Float64 read GetValues; default;
   end;
 
+  TDelegatedMatrixRow = Class(TVirtualMatrixRow)
+  private
+    FValues: TFunc<Integer,Float64>;
+  strict protected
+    Function GetValues(Column: Integer): Float64; override; final;
+  public
+    Constructor Create(const Size: Integer; const Values: TFunc<Integer,Float64>);
+  end;
+
   TVirtualMatrixRows = Class
   // Read only matrix rows
   private
@@ -225,6 +234,19 @@ end;
 
 ////////////////////////////////////////////////////////////////////////////////
 
+Constructor TDelegatedMatrixRow.Create(const Size: Integer; const Values: TFunc<Integer,Float64>);
+begin
+  inherited Create;
+  Init(Size);
+  FValues := Values;
+end;
+
+Function TDelegatedMatrixRow.GetValues(Column: Integer): Float64;
+begin
+  Result := FValues(Column);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
 Procedure TVirtualMatrixRows.Init(Count,Size: Integer);
 begin
   FCount := Count;
