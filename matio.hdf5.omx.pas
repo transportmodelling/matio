@@ -20,6 +20,10 @@ Type
   TOMXPrecision = ftFloat32..ftFloat64;
 
   TOMXMatrixReader = Class(THdf5MatrixReader)
+  // The OMX-specification does not require omx-files to store the creation order
+  // of the matrices. If an omx-file was written without storing the creation order,
+  // it is not possible to read matrices in the same order they have been written
+  // and the Ordered-property will be set to false.
   private
     Const
       Single: array[0..1] of UInt64 = (1,1);
@@ -30,14 +34,16 @@ Type
       RowSpaceId: Int64;
       Float32Row: TFloat32MatrixRow;
       Float64Row: TFloat64MatrixRow;
+      AvailableMatrices: array of String;
       MatrixPrecision: array of TOMXPrecision;
       MatrixDataSetIds,MatrixDataSpaceIds: array of Int64;
+    Class Function LinkIterCallback(loc_id: Int64; Name: PAnsiChar; Info: Pointer; opdata:Pointer) : Integer;  static; cdecl;
+    Procedure GetAvailableMatrices;
+    Procedure GetMatrices(const MatrixLabels: array of String);
   protected
     Procedure Read(const CurrentRow: Integer; const Rows: TCustomMatrixRows); override;
   public
-    // A list of labels for the matrices to be read is passed as a constructor argument
-    // to enable indexed access. The index to use for a specific matrix is the index of its
-    // name in the list of matrix labels.
+    Constructor Create(const FileName: String); overload;
     Constructor Create(const FileName: String; const MatrixLabels: array of String); overload;
     Destructor Destroy; override;
   public
@@ -73,11 +79,60 @@ Type
 implementation
 ////////////////////////////////////////////////////////////////////////////////
 
-Constructor TOMXMatrixReader.Create(const FileName: String; const MatrixLabels: array of String);
+Constructor TOMXMatrixReader.Create(const FileName: String);
+// Reads all matrices available in the file. If the omx-file has been written
+// without storing the creation order of the matrices, the Ordered-property
+// is set to false.
 begin
   inherited Create(FileName);
   Hdf5Dll.ReadStringAttribute(Hdf5FileId,'/','OMX_VERSION',FVersion);
   Hdf5Dll.ReadIntArrayAttribute(Hdf5FileId,'/','SHAPE',Shape);
+  GetAvailableMatrices;
+  GetMatrices(AvailableMatrices);
+end;
+
+Constructor TOMXMatrixReader.Create(const FileName: String; const MatrixLabels: array of String);
+// A list of labels for the matrices to be read is passed as a constructor argument
+// to enable indexed access. The index to use for a specific matrix is the index of its
+// name in the list of matrix labels.
+begin
+  inherited Create(FileName);
+  Hdf5Dll.ReadStringAttribute(Hdf5FileId,'/','OMX_VERSION',FVersion);
+  Hdf5Dll.ReadIntArrayAttribute(Hdf5FileId,'/','SHAPE',Shape);
+  GetAvailableMatrices;
+  GetMatrices(MatrixLabels);
+  FOrdered := true; // // Index provided by selection
+end;
+
+Class Function TOMXMatrixReader.LinkIterCallback(loc_id: Int64; Name: PAnsiChar; Info: Pointer; opdata:Pointer) : Integer;
+begin
+  var MatrixFile := TOMXMatrixReader(opdata);
+  MatrixFile.AvailableMatrices := MatrixFile.AvailableMatrices + [Name];
+  Result := 0;
+end;
+
+Procedure TOMXMatrixReader.GetAvailableMatrices;
+begin
+  var DataGroup := Hdf5Dll.H5Gopen2(Hdf5FileId,'/data',Hdf5Dll.H5P_DEFAULT);
+  // Get creation-order availability
+  var Info := Hdf5Dll.H5Gget_create_plist(DataGroup);
+  var Flags := Hdf5Dll.H5Pget_link_creation_order(Info);
+  Hdf5Dll.H5Pclose(info);
+  // Iterate matrix names
+  var PCallBack := @LinkIterCallback;
+  var Idx: Int64 := 0;
+  if ((flags and Hdf5Dll.H5P_CRT_ORDER_TRACKED) <> 0) then
+    Hdf5Dll.H5Literate(DataGroup,Hdf5Dll.H5_INDEX_CRT_ORDER,Hdf5dll.H5_ITER_INC,@Idx,PCallback,Self)
+  else
+    begin
+      FOrdered := false;
+    	Hdf5Dll.H5Literate(DataGroup,Hdf5Dll.H5_INDEX_NAME,Hdf5dll.H5_ITER_INC,@Idx,PCallback,Self);
+    end;
+  Hdf5Dll.H5Gclose(DataGroup);
+end;
+
+Procedure TOMXMatrixReader.GetMatrices(const MatrixLabels: array of String);
+begin
   SetCount(Length(MatrixLabels));
   SetSize(Shape[1]);
   ChunkSize[0] := 1;

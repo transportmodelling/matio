@@ -15,7 +15,7 @@ Uses
   SysUtils, Types, PropSet, Parse, ArrayBld, matio, matio.formats, matio.text;
 
 Type
-  TTextMatrixReaderFormat = Class(TIndexedMatrixReaderFormat)
+  TTextMatrixReaderFormat = Class(TMatrixReaderFormat)
   private
     TextFormatSettings: TFormatSettings;
   strict protected

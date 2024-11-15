@@ -12,7 +12,7 @@ interface
 ////////////////////////////////////////////////////////////////////////////////
 
 Uses
-  SysUtils, Types, PropSet, matio;
+  SysUtils, Classes, Types, PropSet, matio;
 
 Type
   TMatrixFormat = Class
@@ -32,23 +32,14 @@ Type
   end;
 
   TMatrixReaderFormat = Class(TMatrixFormat)
+  // When creating a matrix reader for a selection (by index or name) of matrices,
+  // the index to use to access a specific matrix is its index in the selection array.
   public
     Function HasFormat(const FileExtension: String): Boolean; overload; virtual;
     Function HasFormat(const Header: TBytes): Boolean; overload; virtual;
-  end;
-
-  TIndexedMatrixReaderFormat = Class(TMatrixReaderFormat)
-  // Matrices are accessed by their index.
-  // Matrices may or may not be labeled, so access by label may or may not be possible.
-  public
-    Function CreateReader(const [ref] Properties: TPropertySet): TMatrixReader; virtual; abstract;
-  end;
-
-  TLabeledMatrixReaderFormat = Class(TMatrixReaderFormat)
-  // Matrices are accessed by their label.
-  // By providing a list of labels for the matrices that should be read, they are also accessible by (list) index.
-  public
-    Function CreateReader(const [ref] Properties: TPropertySet; const Selection: array of String): TMatrixReader; virtual; abstract;
+    Function CreateReader(const [ref] Properties: TPropertySet): TMatrixReader; overload; virtual; abstract;
+    Function CreateReader(const [ref] Properties: TPropertySet; const Selection: array of Integer): TMatrixReader; overload; virtual;
+    Function CreateReader(const [ref] Properties: TPropertySet; const Selection: array of String): TMatrixReader; overload; virtual;
   end;
 
   TMatrixWriterFormat = Class(TMatrixFormat)
@@ -60,40 +51,34 @@ Type
   end;
 
   TMatrixFormats = record
-  // The matrix readers created are always index based.
-  // For label based formats, a list of labels for the matrices to be read must
-  // be passed to the CreateReader-method, so the matrices can be accessed by their (list) index.
   // The record takes ownership of the registered matrix formats.
   private
-    IndexedReaderFormats: TArray<TIndexedMatrixReaderFormat>;
-    LabeledReaderFormats: TArray<TLabeledMatrixReaderFormat>;
-    WriterFormats: TArray<TMatrixWriterFormat>;
+    Const
+      HeaderSize = 75;
+    Var
+      ReaderFormats: TArray<TMatrixReaderFormat>;
+      WriterFormats: TArray<TMatrixWriterFormat>;
   public
     Class Operator Finalize (var Formats: TMatrixFormats);
   public
     // Register format
-    Procedure RegisterFormat(const Format: TIndexedMatrixReaderFormat); overload;
-    Procedure RegisterFormat(const Format: TLabeledMatrixReaderFormat); overload;
+    Procedure RegisterFormat(const Format: TMatrixReaderFormat); overload;
     Procedure RegisterFormat(const Format: TMatrixWriterFormat); overload;
-    // Query registered formats
-    Function RegisteredReaderFormats(ByIndex,ByLabel: Boolean): TStringDynArray;
-    Function ReaderFormat(const Format: string;
-                          const IndexedFormats: Boolean = true;
-                          const LabeledFormats: Boolean= true): TMatrixFormat; overload;
-    Function ReaderFormat(const FileName: TFileName;
-                          const IndexedFormats: Boolean = true;
-                          const LabeledFormats: Boolean= true): TMatrixFormat; overload;
-    Function ReaderFormat(const Header: TBytes;
-                          const IndexedFormats: Boolean = true;
-                          const LabeledFormats: Boolean= true): TMatrixFormat; overload;
+    // Query registered reader formats
+    Function RegisteredReaderFormats: TStringDynArray;
+    Function ReaderFormat(const Format: string): TMatrixFormat; overload;
+    Function ReaderFormat(const FileName: TFileName): TMatrixFormat; overload;
+    Function ReaderFormat(const Header: TBytes): TMatrixFormat; overload;
+    // Query registered writer formats
     Function RegisteredWriterFormats: TStringDynArray;
     Function WriterFormat(const Format: string): TMatrixFormat;
-    // Create matrix reader/writer
-    Function CreateReader(const [ref] Properties: TPropertySet): TMatrixReader; overload;
+    // Create matrix reader
+    Function CreateReader(const [ref] Properties: TPropertySet; Ordered: Boolean = true): TMatrixReader; overload;
     Function CreateReader(const [ref] Properties: TPropertySet;
                           const Selection: array of Integer): TMatrixReader; overload;
     Function CreateReader(const [ref] Properties: TPropertySet;
                           const Selection: array of String): TMatrixReader; overload;
+    // Create matrix writer
     Function CreateWriter(const [ref] Properties: TPropertySet;
                           const FileLabel: string;
                           const MatrixLabels: array of String;
@@ -108,7 +93,8 @@ implementation
 ////////////////////////////////////////////////////////////////////////////////
 
 Uses
-  matio.formats.text, matio.formats.gen4, matio.formats.minutp, matio.formats.visum, matio.formats.omx;
+  matio.formats.text, matio.formats.gen4, matio.formats.minutp, matio.formats.visum,
+  matio.formats.cube, matio.formats.omx;
 
 Procedure TMatrixFormat.AppendFormatProperties(const [ref] Properties: TPropertySet);
 begin
@@ -183,33 +169,48 @@ begin
   Result := false;
 end;
 
+Function TMatrixReaderFormat.CreateReader(const [ref] Properties: TPropertySet; const Selection: array of Integer): TMatrixReader;
+begin
+  var Reader := CreateReader(Properties);
+  if Reader <> nil then
+    if Reader.Ordered then
+      Result := TMaskedMatrixReader.Create(Reader,Selection)
+    else
+      begin
+        Result := nil;
+        Reader.Free;
+        raise Exception.Create('Matrix indices within file undefined')
+      end
+  else
+    Result := nil;
+end;
+
+Function TMatrixReaderFormat.CreateReader(const [ref] Properties: TPropertySet; const Selection: array of String): TMatrixReader;
+begin
+  var Reader := CreateReader(Properties);
+  if Reader <> nil then
+    Result := TMaskedMatrixReader.Create(Reader,Selection)
+  else
+    Result := nil;
+end;
+
 ////////////////////////////////////////////////////////////////////////////////
 
 Class Operator TMatrixFormats.Finalize(var Formats: TMatrixFormats);
 begin
-  // Destroy indexed reader formats
-  for var Format := low(Formats.IndexedReaderFormats) to high(Formats.IndexedReaderFormats) do
-    Formats.IndexedReaderFormats[Format].Free;
-  // Destroy labeled reader formats
-  for var Format := low(Formats.LabeledReaderFormats) to high(Formats.LabeledReaderFormats) do
-    Formats.LabeledReaderFormats[Format].Free;
+  // Destroy reader formats
+  for var Format := low(Formats.ReaderFormats) to high(Formats.ReaderFormats) do
+    Formats.ReaderFormats[Format].Free;
   // Destroy writer formats
   for var Format := low(Formats.WriterFormats) to high(Formats.WriterFormats) do
     Formats.WriterFormats[Format].Free;
 end;
 
-Procedure TMatrixFormats.RegisterFormat(const Format: TIndexedMatrixReaderFormat);
+Procedure TMatrixFormats.RegisterFormat(const Format: TMatrixReaderFormat);
 begin
-  var Count := Length(IndexedReaderFormats);
-  SetLength(IndexedReaderFormats,Count+1);
-  IndexedReaderFormats[Count] := Format;
-end;
-
-Procedure TMatrixFormats.RegisterFormat(const Format: TLabeledMatrixReaderFormat);
-begin
-  var Count := Length(LabeledReaderFormats);
-  SetLength(LabeledReaderFormats,Count+1);
-  LabeledReaderFormats[Count] := Format;
+  var Count := Length(ReaderFormats);
+  SetLength(ReaderFormats,Count+1);
+  ReaderFormats[Count] := Format;
 end;
 
 Procedure TMatrixFormats.RegisterFormat(const Format: TMatrixWriterFormat);
@@ -219,70 +220,49 @@ begin
   WriterFormats[Count] := Format;
 end;
 
-Function TMatrixFormats.RegisteredReaderFormats(ByIndex,ByLabel: Boolean): TStringDynArray;
+Function TMatrixFormats.RegisteredReaderFormats: TStringDynArray;
 begin
   Result := [];
-  // Add index matrix formats
-  if ByIndex then
-  for var Format := low(IndexedReaderFormats) to high(IndexedReaderFormats) do
-  Result := Result + [IndexedReaderFormats[Format].Format];
-  // Add labeled matrix formats
-  if ByLabel then
-  for var Format := low(LabeledReaderFormats) to high(LabeledReaderFormats) do
-  Result := Result + [LabeledReaderFormats[Format].Format];
+  for var Format := low(ReaderFormats) to high(ReaderFormats) do
+  Result := Result + [ReaderFormats[Format].Format];
 end;
 
-Function TMatrixFormats.ReaderFormat(const Format: string;
-                                     const IndexedFormats: Boolean = true;
-                                     const LabeledFormats: Boolean= true): TMatrixFormat;
+Function TMatrixFormats.ReaderFormat(const Format: string): TMatrixFormat;
 begin
   Result := nil;
-  // Indexed reader formats
-  if IndexedFormats then
-  for var ReaderFormat := low(IndexedReaderFormats) to high(IndexedReaderFormats) do
-  if SameText(IndexedReaderFormats[ReaderFormat].Format,Format) then
-  Exit(IndexedReaderFormats[ReaderFormat]);
-  // Labeled reader formats
-  if LabeledFormats then
-  for var ReaderFormat := low(LabeledReaderFormats) to high(LabeledReaderFormats) do
-  if SameText(LabeledReaderFormats[ReaderFormat].Format,Format) then
-  Exit(LabeledReaderFormats[ReaderFormat]);
+  for var ReaderFormat := low(ReaderFormats) to high(ReaderFormats) do
+  if SameText(ReaderFormats[ReaderFormat].Format,Format) then
+  Exit(ReaderFormats[ReaderFormat]);
 end;
 
-Function TMatrixFormats.ReaderFormat(const FileName: TFileName;
-                                     const IndexedFormats: Boolean = true;
-                                     const LabeledFormats: Boolean= true): TMatrixFormat;
+Function TMatrixFormats.ReaderFormat(const FileName: TFileName): TMatrixFormat;
+Var
+  Header: TBytes;
 begin
   Result := nil;
-  // Get file extension
+  // Determine file format based on file extension
   var FileExtension := ExtractFileExt(FileName);
-  // Indexed reader formats
-  if IndexedFormats then
-  for var ReaderFormat := low(IndexedReaderFormats) to high(IndexedReaderFormats) do
-  if IndexedReaderFormats[ReaderFormat].HasFormat(FileExtension) then
-  Exit(IndexedReaderFormats[ReaderFormat]);
-  // Labeled reader formats
-  if LabeledFormats then
-  for var ReaderFormat := low(LabeledReaderFormats) to high(LabeledReaderFormats) do
-  if LabeledReaderFormats[ReaderFormat].HasFormat(FileExtension) then
-  Exit(LabeledReaderFormats[ReaderFormat]);
+  for var ReaderFormat := low(ReaderFormats) to high(ReaderFormats) do
+  if ReaderFormats[ReaderFormat].HasFormat(FileExtension) then
+  Exit(ReaderFormats[ReaderFormat]);
+  // Read header
+  SetLength(Header,HeaderSize);
+  var FileStream := TFileStream.Create(FileName,fmOpenRead or fmShareDenyWrite);
+  try
+    FileStream.Read(Header,Length(Header))
+  finally
+    FileStream.Free;
+  end;
+  // Determine file format based on file header
+  Result := ReaderFormat(Header);
 end;
 
-Function TMatrixFormats.ReaderFormat(const Header: TBytes;
-                                     const IndexedFormats: Boolean = true;
-                                     const LabeledFormats: Boolean= true): TMatrixFormat;
+Function TMatrixFormats.ReaderFormat(const Header: TBytes): TMatrixFormat;
 begin
   Result := nil;
-  // Indexed reader formats
-  if IndexedFormats then
-  for var ReaderFormat := low(IndexedReaderFormats) to high(IndexedReaderFormats) do
-  if IndexedReaderFormats[ReaderFormat].HasFormat(Header) then
-  Exit(IndexedReaderFormats[ReaderFormat]);
-  // Labeled reader formats
-  if LabeledFormats then
-  for var ReaderFormat := low(LabeledReaderFormats) to high(LabeledReaderFormats) do
-  if LabeledReaderFormats[ReaderFormat].HasFormat(Header) then
-  Exit(LabeledReaderFormats[ReaderFormat]);
+  for var ReaderFormat := low(ReaderFormats) to high(ReaderFormats) do
+  if ReaderFormats[ReaderFormat].HasFormat(Header) then
+  Exit(ReaderFormats[ReaderFormat]);
 end;
 
 Function TMatrixFormats.RegisteredWriterFormats: TStringDynArray;
@@ -300,45 +280,48 @@ begin
   Exit(WriterFormats[WriterFormat]);
 end;
 
-Function TMatrixFormats.CreateReader(const [ref] Properties: TPropertySet): TMatrixReader;
+Function TMatrixFormats.CreateReader(const [ref] Properties: TPropertySet; Ordered: Boolean = true): TMatrixReader;
 begin
   Result := nil;
   var Format := Properties[TMatrixFormat.FormatProperty];
-  for var ReaderFormat := low(IndexedReaderFormats) to high(IndexedReaderFormats) do
-  if SameText(IndexedReaderFormats[ReaderFormat].Format,Format) then
-  if IndexedReaderFormats[ReaderFormat].Available then
-    Exit(IndexedReaderFormats[ReaderFormat].CreateReader(Properties))
-  else
+  for var ReaderFormat := low(ReaderFormats) to high(ReaderFormats) do
+  if SameText(ReaderFormats[ReaderFormat].Format,Format) then
+  if ReaderFormats[ReaderFormat].Available then
+  begin
+    Result := ReaderFormats[ReaderFormat].CreateReader(Properties);
+    if Ordered and (not Result.Ordered) then
+    begin
+      FreeAndNil(Result);
+      raise Exception.Create('Matrix indices within file undefined');
+    end;
+  end else
     raise Exception.Create(Format+'-format unavailable');
 end;
 
 Function TMatrixFormats.CreateReader(const [ref] Properties: TPropertySet;
                                      const Selection: array of Integer): TMatrixReader;
 begin
-  var Reader := CreateReader(Properties);
-  if Reader <> nil then
-    Result := TMaskedMatrixReader.Create(Reader,Selection)
+  Result := nil;
+  var Format := Properties[TMatrixFormat.FormatProperty];
+  for var ReaderFormat := low(ReaderFormats) to high(ReaderFormats) do
+  if SameText(ReaderFormats[ReaderFormat].Format,Format) then
+  if ReaderFormats[ReaderFormat].Available then
+    Exit(ReaderFormats[ReaderFormat].CreateReader(Properties,Selection))
   else
-    Result := nil;
+    raise Exception.Create(Format+'-format unavailable');
 end;
 
 Function TMatrixFormats.CreateReader(const [ref] Properties: TPropertySet;
                                      const Selection: array of String): TMatrixReader;
 begin
-  var Reader := CreateReader(Properties);
-  if Reader = nil then
-  begin
-    Result := nil;
-    // Create labeled matrix reader
-    var Format := Properties[TMatrixFormat.FormatProperty];
-    for var ReaderFormat := low(LabeledReaderFormats) to high(LabeledReaderFormats) do
-    if SameText(LabeledReaderFormats[ReaderFormat].Format,Format) then
-    if LabeledReaderFormats[ReaderFormat].Available then
-      Exit(LabeledReaderFormats[ReaderFormat].CreateReader(Properties,Selection))
-    else
-      raise Exception.Create(Format+'-format unavailable');
-  end else
-    Result := TMaskedMatrixReader.Create(Reader,Selection);
+  Result := nil;
+  var Format := Properties[TMatrixFormat.FormatProperty];
+  for var ReaderFormat := low(ReaderFormats) to high(ReaderFormats) do
+  if SameText(ReaderFormats[ReaderFormat].Format,Format) then
+  if ReaderFormats[ReaderFormat].Available then
+    Exit(ReaderFormats[ReaderFormat].CreateReader(Properties,Selection))
+  else
+    raise Exception.Create(Format+'-format unavailable');
 end;
 
 Function TMatrixFormats.CreateWriter(const [ref] Properties: TPropertySet;

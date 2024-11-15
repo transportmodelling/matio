@@ -15,7 +15,7 @@ Uses
   SysUtils, Classes, PropSet, matio, matio.formats, matio.visum;
 
 Type
-  TVisumMatrixReaderFormat = Class(TIndexedMatrixReaderFormat)
+  TVisumMatrixReaderFormat = Class(TMatrixReaderFormat)
   public
     Function Format: String; override;
     Function HasFormat(const Header: TBytes): Boolean; override;

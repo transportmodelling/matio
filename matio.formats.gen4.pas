@@ -15,7 +15,7 @@ Uses
   SysUtils, Types, Propset, ArrayBld, matio, matio.formats, matio.gen4;
 
 Type
-  T4GMatrixReaderFormat = Class(TIndexedMatrixReaderFormat)
+  T4GMatrixReaderFormat = Class(TMatrixReaderFormat)
   public
     Function Format: String; override;
     Function HasFormat(const Header: TBytes): Boolean; override;

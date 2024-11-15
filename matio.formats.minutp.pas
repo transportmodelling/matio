@@ -15,7 +15,7 @@ Uses
   SysUtils, PropSet, matio, matio.formats, matio.minutp;
 
 Type
-  TMinutpMatrixReaderFormat = Class(TIndexedMatrixReaderFormat)
+  TMinutpMatrixReaderFormat = Class(TMatrixReaderFormat)
   strict protected
     Procedure AppendFormatProperties(const [ref] Properties: TPropertySet); override;
   public

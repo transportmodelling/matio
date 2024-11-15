@@ -149,6 +149,7 @@ Type
     FMatrixLabels: TArray<String>;
     Function GetMatrixLabels(Mtrx: Integer): String; inline;
   strict protected
+    FOrdered: Boolean;
     Constructor Create(const FileName: String; const CreateStream: Boolean = true); overload;
     Procedure SetCount(Count: Integer); override;
     Procedure SetFileLabel(const FileLabel: String);
@@ -165,6 +166,7 @@ Type
     Procedure Read(const Rows: TCustomMatrixRows); overload;
     Procedure Read(const Rows: TMatrixIterator); overload;
   public
+    Property Ordered: Boolean read FOrdered;
     Property FileLabel: String read FFileLabel;
     Property MatrixLabels[Matrix: Integer]: String read GetMatrixLabels;
   end;
@@ -444,6 +446,7 @@ end;
 Constructor TMatrixReader.Create(const FileName: String; const CreateStream: Boolean = true);
 begin
   inherited Create;
+  FOrdered := true;
   FFileName := ExpandFileName(FileName);
   if CreateStream then
   FileStream := TBufferedFileStream.Create(FFileName,fmOpenRead or fmShareDenyWrite,BufferSize);

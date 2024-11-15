@@ -15,11 +15,12 @@ Uses
   SysUtils, Types, Propset, matio, matio.formats, matio.hdf5.omx;
 
 Type
-  TOMXMatrixReaderFormat = Class(TLabeledMatrixReaderFormat)
+  TOMXMatrixReaderFormat = Class(TMatrixReaderFormat)
   public
     Function Format: String; override;
     Function Available: Boolean; override;
     Function HasFormat(const FileExtension: String): Boolean; override;
+    Function CreateReader(const [ref] Properties: TPropertySet): TMatrixReader; override;
     Function CreateReader(const [ref] Properties: TPropertySet; const Selection: array of String): TMatrixReader; override;
   end;
 
@@ -56,6 +57,14 @@ end;
 Function TOMXMatrixReaderFormat.HasFormat(const FileExtension: String): Boolean;
 begin
   Result := SameText(FileExtension,'.omx');
+end;
+
+Function TOMXMatrixReaderFormat.CreateReader(const [ref] Properties: TPropertySet): TMatrixReader;
+begin
+  if SameText(Properties[FormatProperty],Format) then
+    Result := TOMXMatrixReader.Create(Properties.ToPath(FileProperty))
+  else
+    raise Exception.Create('Invalid format-property');
 end;
 
 Function TOMXMatrixReaderFormat.CreateReader(const [ref] Properties: TPropertySet; const Selection: array of String): TMatrixReader;
@@ -106,7 +115,7 @@ begin
     for var Prec := low(TOMXPrecision) to high(TOMXPrecision) do
     if SameText(PrecisionLabels[Prec],PrecisionPropertyValue) then
     begin
-      result := TOMXMatrixWriter.Create(ExtendedProperties.ToPath(FileProperty),FileLabel,MatrixLabels,Size,Prec);
+      Result := TOMXMatrixWriter.Create(ExtendedProperties.ToPath(FileProperty),FileLabel,MatrixLabels,Size,Prec);
       Exit;
     end;
     raise Exception.Create('Invalid precision-property');

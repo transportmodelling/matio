@@ -24,6 +24,7 @@ Type
     FH5Fcreate: Function(FileName: PAnsiChar; Flags: UInt32; fcpl_id: Int64; fapl_id : Int64): Int64; cdecl;
     FH5Fopen: Function(filename: PAnsiChar; flags: UInt32; access_plist: Int64): Int64; cdecl;
     FH5Oopen: Function(FileId: Int64; Name: PAnsiChar; lapl_id: Int64): Int64; cdecl;
+    FH5Literate: Function(grp_id: Int64; idx_type: Integer; order: Integer; idx: PInt64; op: Pointer; op_data: Pointer): Integer; cdecl;
     FH5Tcopy:  Function(TypeId: Int64): Int64; cdecl;
     FH5Tget_class: Function(type_id: Int64): Integer; cdecl;
     FH5Tget_size: Function(type_id: Int64): UInt64; cdecl;
@@ -42,11 +43,15 @@ Type
     FH5Aget_storage_size: Function(attr_id: Int64): UInt64; cdecl;
     FH5Aread: Function(attr_id: Int64; type_id: Int64; Buf: Pointer): Integer; cdecl;
     FH5Pcreate: Function(cls_id: Int64): Int64; cdecl;
+    FH5Pget_link_creation_order: Function(plist_id: Int64; crt_order_flags: PUInt32): Integer; cdecl;
     FH5Pset_link_creation_order: Function(plist_id: Int64; crt_order_flags: UInt32): Integer; cdecl;
     FH5Pset_chunk: Function(plist_id: Int64; ndims: Integer; dim: PUInt64): Integer; cdecl;
     FH5Pset_deflate: Function(plist_id: Int64; aggression: UInt32): Integer; cdecl;
     FH5Pset_fill_value: Function(plist_id: Int64; type_id: Int64; value: Pointer): Integer; cdecl;
     FH5Gcreate2: Function(loc_id: Int64; Name: PAnsiChar; lcpl_id: Int64; gcpl_id: Int64; gapl_id: Int64): Int64; cdecl;
+    FH5Gopen2: Function(loc_id: Int64; Name: PAnsiChar; gapl_id: Int64): Int64; cdecl;
+    FH5Gget_create_plist: Function(group_id: Int64): Int64; cdecl;
+    FH5Gclose: Function(group_id: Int64): Integer; cdecl;
     FH5Awrite: Function(AttributeId: Int64; TypeId: Int64; Buf: Pointer): Integer; cdecl;
     FH5Dcreate2: Function(loc_id: Int64; name: PAnsiChar; type_id: Int64; space_id: Int64;
                           lcpl_id: Int64; dcpl_id: Int64; dapl_id: Int64): Int64; cdecl;
@@ -72,6 +77,7 @@ Type
     Function H5Fcreate(FileName: AnsiString; Flags: UInt32; fcpl_id: Int64; fapl_id : Int64): Int64;
     Function H5Fopen(FileName: AnsiString; flags: UInt32; access_plist: Int64): Int64;
     Function H5Oopen(FileId: Int64; Name: AnsiString; lapl_id: Int64): Int64;
+    Function H5Literate(grp_id: Int64; idx_type: Integer; order: Integer; idx: PInt64; op: Pointer; op_data: Pointer): Integer;
     Function H5Tcopy(TypeId: Int64): Int64;
     Function H5Tget_class(type_id: Int64): Integer;
     Function H5Tget_size(type_id: Int64): UInt64;
@@ -88,11 +94,15 @@ Type
     Function H5Aget_storage_size(attr_id: Int64): UInt64;
     Procedure H5Aread(attr_id: Int64; type_id: Int64; Buf: Pointer);
     Function H5Pcreate(cls_id: Int64): Int64;
+    Function H5Pget_link_creation_order(plist_id: Int64): UInt32;
     Procedure H5Pset_link_creation_order(plist_id: Int64; crt_order_flags: UInt32);
     Procedure H5Pset_chunk(plist_id: Int64; ndims: Integer; dim: PUInt64);
     Procedure H5Pset_deflate(plist_id: Int64; aggression: UInt32);
     Procedure H5Pset_fill_value(plist_id: Int64; type_id: Int64; value: Pointer);
     Function H5Gcreate2(loc_id: Int64; Name: AnsiString; lcpl_id: Int64; gcpl_id: Int64; gapl_id: Int64): Int64;
+    Function H5Gopen2(loc_id: Int64; Name: AnsiString; gapl_id: Int64): Int64;
+    Function H5Gget_create_plist(group_id: Int64): Int64;
+    Function H5Gclose(group_id: Int64): Integer;
     Procedure H5Awrite(AttributeId: Int64; TypeId: Int64; Buf: Pointer);
     Function H5Dcreate2(loc_id: Int64; name: AnsiString; type_id: Int64; space_id: Int64;
                         lcpl_id: Int64; dcpl_id: Int64; dapl_id: Int64): Int64;
@@ -120,9 +130,13 @@ Type
   public
     Const
       H5P_DEFAULT = 0;
+      H5_ITER_INC = 0;
+      H5_ITER_DEC = 1;
       H5F_ACC_RDONLY = 0;
       H5F_ACC_TRUNC = 2;
       H5P_CRT_ORDER_TRACKED = 1;
+      H5_INDEX_NAME = 0;
+      H5_INDEX_CRT_ORDER = 1;
       H5S_SELECT_SET = 0;
       H5T_STR_NULLTERM = 0;
       H5S_SCALAR = 0;
@@ -175,6 +189,7 @@ begin
     FH5Fcreate := GetDllMethod('H5Fcreate');
     FH5Fopen := GetDllMethod('H5Fopen');
     FH5Oopen := GetDllMethod('H5Oopen');
+    FH5Literate := GetDllMethod('H5Literate1');
     FH5Tcopy := GetDllMethod('H5Tcopy');
     FH5Tget_class := GetDllMethod('H5Tget_class');
     FH5Tget_size := GetDllMethod('H5Tget_size');
@@ -191,11 +206,15 @@ begin
     FH5Aget_storage_size := GetDllMethod('H5Aget_storage_size');
     FH5Aread := GetDllMethod('H5Aread');
     FH5Pcreate := GetDllMethod('H5Pcreate');
+    FH5Pget_link_creation_order := GetDllMethod('H5Pget_link_creation_order');
     FH5Pset_link_creation_order := GetDllMethod('H5Pset_link_creation_order');
     FH5Pset_chunk := GetDllMethod('H5Pset_chunk');
     FH5Pset_deflate := GetDllMethod('H5Pset_deflate');
     FH5Pset_fill_value := GetDllMethod('H5Pset_fill_value');
     FH5Gcreate2 := GetDllMethod('H5Gcreate2');
+    FH5Gopen2 := GetDllMethod('H5Gopen2');
+    FH5Gget_create_plist := GetDllMethod('H5Gget_create_plist');
+    FH5Gclose := GetDllMethod('H5Gclose');
     FH5Awrite := GetDllMethod('H5Awrite');
     FH5Dcreate2 := GetDllMethod('H5Dcreate2');
     FH5Dopen2 := GetDllMethod('H5Dopen2');
@@ -256,6 +275,12 @@ Function THdf5Dll.H5Oopen(FileId: Int64; Name: AnsiString; lapl_id: Int64): Int6
 begin
   Result := FH5Oopen(FileId,PAnsiChar(Name),lapl_id);
   if Result < 0 then raise Exception.Create('Error calling H5Oopen')
+end;
+
+Function THdf5Dll.H5Literate(grp_id: Int64; idx_type: Integer; order: Integer; idx: PInt64; op: Pointer; op_data: Pointer): Integer;
+begin
+  Result := FH5Literate(grp_id,idx_type,order,idx,op,op_data);
+  if Result < 0 then raise Exception.Create('Error calling H5Literate')
 end;
 
 Function THdf5Dll.H5Tcopy(TypeId: Int64): Int64;
@@ -346,6 +371,12 @@ begin
   if Result < 0 then raise Exception.Create('Error calling H5Pcreate')
 end;
 
+Function THdf5Dll.H5Pget_link_creation_order(plist_id: Int64): UInt32;
+begin
+  if FH5Pget_link_creation_order(plist_id,@Result) < 0 then
+    raise Exception.Create('Error calling H5Pget_link_creation_order')
+end;
+
 Procedure THdf5Dll.H5Pset_link_creation_order(plist_id: Int64; crt_order_flags: UInt32);
 begin
   if FH5Pset_link_creation_order(plist_id,crt_order_flags) < 0 then
@@ -371,6 +402,24 @@ Function THdf5Dll.H5Gcreate2(loc_id: Int64; Name: AnsiString; lcpl_id: Int64; gc
 begin
   Result := FH5Gcreate2(loc_id,PAnsiChar(Name),lcpl_id,gcpl_id,gapl_id);
   if Result < 0 then raise Exception.Create('Error calling H5Gcreate2')
+end;
+
+Function THdf5Dll.H5Gopen2(loc_id: Int64; Name: ANSIString; gapl_id: Int64): Int64;
+begin
+  Result := FH5Gopen2(loc_id,PAnsiChar(Name),gapl_id);
+  if Result < 0 then raise Exception.Create('Error calling H5Gopen2')
+end;
+
+Function THdf5Dll.H5Gget_create_plist(group_id: Int64): Int64;
+begin
+  Result := FH5Gget_create_plist(group_id);
+  if Result < 0 then raise Exception.Create('Error calling H5Gget_create_plist')
+end;
+
+Function THdf5Dll.H5Gclose(group_id: Int64): Integer;
+begin
+  Result := FH5Gclose(group_id);
+  if Result < 0 then raise Exception.Create('Error calling H5Gclose')
 end;
 
 Procedure THdf5Dll.H5Awrite(AttributeId: Int64; TypeId: Int64; Buf: Pointer);
