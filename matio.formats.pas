@@ -93,8 +93,7 @@ implementation
 ////////////////////////////////////////////////////////////////////////////////
 
 Uses
-  matio.formats.text, matio.formats.gen4, matio.formats.minutp, matio.formats.visum,
-  matio.formats.cube, matio.formats.omx;
+  matio.formats.text, matio.formats.gen4, matio.formats.minutp, matio.formats.visum, matio.formats.omx;
 
 Procedure TMatrixFormat.AppendFormatProperties(const [ref] Properties: TPropertySet);
 begin
