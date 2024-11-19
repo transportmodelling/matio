@@ -244,16 +244,18 @@ begin
   for var ReaderFormat := low(ReaderFormats) to high(ReaderFormats) do
   if ReaderFormats[ReaderFormat].HasFormat(FileExtension) then
   Exit(ReaderFormats[ReaderFormat]);
-  // Read header
-  SetLength(Header,HeaderSize);
-  var FileStream := TFileStream.Create(FileName,fmOpenRead or fmShareDenyWrite);
-  try
-    FileStream.Read(Header,Length(Header))
-  finally
-    FileStream.Free;
-  end;
   // Determine file format based on file header
-  Result := ReaderFormat(Header);
+  if FileExists(FileName) then
+  begin
+    var FileStream := TFileStream.Create(FileName,fmOpenRead or fmShareDenyWrite);
+    try
+      SetLength(Header,HeaderSize);
+      FileStream.Read(Header,HeaderSize)
+    finally
+      FileStream.Free;
+    end;
+    Result := ReaderFormat(Header);
+  end;
 end;
 
 Function TMatrixFormats.ReaderFormat(const Header: TBytes): TMatrixFormat;
