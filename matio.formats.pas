@@ -93,7 +93,8 @@ implementation
 ////////////////////////////////////////////////////////////////////////////////
 
 Uses
-  matio.formats.text, matio.formats.gen4, matio.formats.minutp, matio.formats.visum, matio.formats.omx;
+  matio.formats.text, matio.formats.gen4, matio.formats.minutp, matio.formats.visum,
+  matio.formats.omx, matio.formats.cube;
 
 Procedure TMatrixFormat.AppendFormatProperties(const [ref] Properties: TPropertySet);
 begin
@@ -349,5 +350,7 @@ Initialization
   MatrixFormats.RegisterFormat(T4GMatrixWriterFormat.Create);
   MatrixFormats.RegisterFormat(TOMXMatrixReaderFormat.Create);
   MatrixFormats.RegisterFormat(TOMXMatrixWriterFormat.Create);
+  MatrixFormats.RegisterFormat(TCubeMatrixReaderFormat.Create);
+  MatrixFormats.RegisterFormat(TCubeMatrixWriterFormat.Create);
   MatrixFormats.RegisterFormat(TVisumMatrixReaderFormat.Create);
 end.

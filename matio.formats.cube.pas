@@ -1,4 +1,4 @@
-unit matio.formats.omx;
+unit matio.formats.cube;
 
 ////////////////////////////////////////////////////////////////////////////////
 //
@@ -12,10 +12,10 @@ interface
 ////////////////////////////////////////////////////////////////////////////////
 
 Uses
-  SysUtils, Types, Propset, matio, matio.formats, matio.formats.hdf5, matio.hdf5, matio.hdf5.omx;
+  SysUtils, Types, Propset, matio, matio.formats, matio.formats.hdf5, matio.hdf5, matio.hdf5.cube;
 
 Type
-  TOMXMatrixReaderFormat = Class(THdf5MatrixReaderFormat)
+  TCubeMatrixReaderFormat = Class(THdf5MatrixReaderFormat)
   public
     Function Format: String; override;
     Function HasFormat(const FileExtension: String): Boolean; override;
@@ -23,7 +23,7 @@ Type
     Function CreateReader(const [ref] Properties: TPropertySet; const Selection: array of String): TMatrixReader; override;
   end;
 
-  TOMXMatrixWriterFormat = Class(THdf5MatrixWriterFormat)
+  TCubeMatrixWriterFormat = Class(THdf5MatrixWriterFormat)
   public
     Function Format: String; override;
     Function CreateWriter(const [ref] Properties: TPropertySet;
@@ -36,43 +36,43 @@ Type
 implementation
 ////////////////////////////////////////////////////////////////////////////////
 
-Function TOMXMatrixReaderFormat.Format: String;
+Function TCubeMatrixReaderFormat.Format: String;
 begin
-  Result := 'omx';
+  Result := 'cube';
 end;
 
-Function TOMXMatrixReaderFormat.HasFormat(const FileExtension: String): Boolean;
+Function TCubeMatrixReaderFormat.HasFormat(const FileExtension: String): Boolean;
 begin
-  Result := SameText(FileExtension,'.omx');
+  Result := SameText(FileExtension,'.Cube-matrix');
 end;
 
-Function TOMXMatrixReaderFormat.CreateReader(const [ref] Properties: TPropertySet): TMatrixReader;
+Function TCubeMatrixReaderFormat.CreateReader(const [ref] Properties: TPropertySet): TMatrixReader;
 begin
   if SameText(Properties[FormatProperty],Format) then
-    Result := TOMXMatrixReader.Create(Properties.ToPath(FileProperty))
+    Result := TCubeMatrixReader.Create(Properties.ToPath(FileProperty))
   else
     raise Exception.Create('Invalid format-property');
 end;
 
-Function TOMXMatrixReaderFormat.CreateReader(const [ref] Properties: TPropertySet; const Selection: array of String): TMatrixReader;
+Function TCubeMatrixReaderFormat.CreateReader(const [ref] Properties: TPropertySet; const Selection: array of String): TMatrixReader;
 begin
   if SameText(Properties[FormatProperty],Format) then
-    Result := TOMXMatrixReader.Create(Properties.ToPath(FileProperty),Selection)
+    Result := TCubeMatrixReader.Create(Properties.ToPath(FileProperty),Selection)
   else
     raise Exception.Create('Invalid format-property');
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
 
-Function TOMXMatrixWriterFormat.Format: String;
+Function TCubeMatrixWriterFormat.Format: String;
 begin
-  Result := 'omx';
+  Result := 'cube';
 end;
 
-Function TOMXMatrixWriterFormat.CreateWriter(const [ref] Properties: TPropertySet;
-                                             const FileLabel: string;
-                                             const MatrixLabels: array of String;
-                                             const Size: Integer): TMatrixWriter;
+Function TCubeMatrixWriterFormat.CreateWriter(const [ref] Properties: TPropertySet;
+                                              const FileLabel: string;
+                                              const MatrixLabels: array of String;
+                                              const Size: Integer): TMatrixWriter;
 begin
   if SameText(Properties[FormatProperty],Format) then
   begin
@@ -81,7 +81,7 @@ begin
     for var Prec := low(THdf5Precision) to high(THdf5Precision) do
     if SameText(PrecisionLabels[Prec],PrecisionPropertyValue) then
     begin
-      Result := TOMXMatrixWriter.Create(ExtendedProperties.ToPath(FileProperty),FileLabel,MatrixLabels,Size,Prec);
+      Result := TCubeMatrixWriter.Create(ExtendedProperties.ToPath(FileProperty),FileLabel,MatrixLabels,Size,Prec);
       Exit;
     end;
     raise Exception.Create('Invalid precision-property');
