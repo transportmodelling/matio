@@ -297,7 +297,7 @@ begin
       raise Exception.Create('Matrix indices within file undefined');
     end;
   end else
-    raise Exception.Create(Format+'-format unavailable');
+    Break;
 end;
 
 Function TMatrixFormats.CreateReader(const [ref] Properties: TPropertySet;
@@ -310,7 +310,7 @@ begin
   if ReaderFormats[ReaderFormat].Available then
     Exit(ReaderFormats[ReaderFormat].CreateReader(Properties,Selection))
   else
-    raise Exception.Create(Format+'-format unavailable');
+    Break;
 end;
 
 Function TMatrixFormats.CreateReader(const [ref] Properties: TPropertySet;
@@ -323,7 +323,7 @@ begin
   if ReaderFormats[ReaderFormat].Available then
     Exit(ReaderFormats[ReaderFormat].CreateReader(Properties,Selection))
   else
-    raise Exception.Create(Format+'-format unavailable');
+    Break;
 end;
 
 Function TMatrixFormats.CreateWriter(const [ref] Properties: TPropertySet;
@@ -338,7 +338,7 @@ begin
   if WriterFormats[WriterFormat].Available then
     Exit(WriterFormats[WriterFormat].CreateWriter(Properties,FileLabel,MatrixLabels,Size))
   else
-    raise Exception.Create(Format+'-format unavailable');
+    Break;
 end;
 
 Initialization
