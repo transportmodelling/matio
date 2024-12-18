@@ -24,6 +24,8 @@ Type
     Const
       FileProperty = 'file';
       FormatProperty = 'format';
+    Class Function FileName(const [ref] Properties: TPropertySet; Expand: Boolean = true): String;
+  public
     Function Format: String; virtual; abstract;
     Function Available: Boolean; virtual;
     Function FormatProperties(ReadOnly: Boolean = true): TPropertySet;
@@ -34,6 +36,8 @@ Type
   TMatrixReaderFormat = Class(TMatrixFormat)
   // When creating a matrix reader for a selection (by index or name) of matrices,
   // the index to use to access a specific matrix is its index in the selection array.
+  public
+    Class Function FileExists(const [ref] Properties: TPropertySet): Boolean;
   public
     Function HasFormat(const FileExtension: String): Boolean; overload; virtual;
     Function HasFormat(const Header: TBytes): Boolean; overload; virtual;
@@ -95,6 +99,14 @@ implementation
 Uses
   matio.formats.text, matio.formats.gen4, matio.formats.minutp, matio.formats.visum,
   matio.formats.omx, matio.formats.cube;
+
+Class Function TMatrixFormat.FileName(const [ref] Properties: TPropertySet; Expand: Boolean = true): String;
+begin
+  if Expand then
+    Result := Properties.ToPath(FileProperty)
+  else
+    Result := Properties[FileProperty];
+end;
 
 Procedure TMatrixFormat.AppendFormatProperties(const [ref] Properties: TPropertySet);
 begin
@@ -158,6 +170,11 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
+
+Class Function TMatrixReaderFormat.FileExists(const [ref] Properties: TPropertySet): Boolean;
+begin
+  Result := SysUtils.FileExists(FileName(Properties));
+end;
 
 Function TMatrixReaderFormat.HasFormat(const FileExtension: String): Boolean;
 begin
