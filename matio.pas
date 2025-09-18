@@ -64,6 +64,15 @@ Type
     Property Values[Matrix,Column: Integer]: Float64 read DoGetValues; default;
   end;
 
+  TDelegatedMatrixRows = Class(TVirtualMatrixRows)
+  private
+    FValues: TFunc<Integer,Integer,Float64>;
+  strict protected
+    Function GetValues(Matrix,Column: Integer): Float64; override; final;
+  public
+    Constructor Create(const Count,Size: Integer; const Values: TFunc<Integer,Integer,Float64>);
+  end;
+
   TCustomMatrixRows = Class(TVirtualMatrixRows)
   // Base class for matrix rows with read and write access. Descendents must implement
   // the in memory storage for matrix values.
@@ -208,11 +217,13 @@ Type
     Procedure Write(const Row: TVirtualMatrixRow); overload;
     Procedure Write(const Row: TFloat64MatrixRow); overload;
     Procedure Write(const Row: TFloat32MatrixRow); overload;
+    Procedure Write(const Row: TFunc<Integer,Float64>); overload;
     Procedure Write(const Rows: array of TVirtualMatrixRow); overload;
     Procedure Write(const Rows: array of TFloat64MatrixRow); overload;
     Procedure Write(const Rows: array of TFloat32MatrixRow); overload;
     Procedure Write(const Rows: TVirtualMatrixRows); overload;
     Procedure Write(const Rows: TMatrixIterator); overload;
+    Procedure Write(const Rows: TFunc<Integer,Integer,Float64>); overload;
     Destructor Destroy; override;
   end;
 
@@ -249,6 +260,7 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
+
 Procedure TVirtualMatrixRows.Init(Count,Size: Integer);
 begin
   FCount := Count;
@@ -295,6 +307,20 @@ Function TVirtualMatrixRows.Total(Matrix: Integer): Float64;
 begin
   Result := 0.0;
   for var Column := 0 to FSize-1 do Result := Result + GetValues(Matrix,Column);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+
+Constructor TDelegatedMatrixRows.Create(const Count,Size: Integer; const Values: TFunc<Integer,Integer,Float64>);
+begin
+  inherited Create;
+  Init(Count,Size);
+  FValues := Values;
+end;
+
+Function TDelegatedMatrixRows.GetValues(Matrix,Column: Integer): Float64;
+begin
+  Result := FValues(Matrix,Column);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -703,6 +729,16 @@ begin
   Write(Float32MatrixRows);
 end;
 
+Procedure TMatrixWriter.Write(const Row: TFunc<Integer,Float64>);
+begin
+  var DelegatedRow := TDelegatedMatrixRow.Create(Size,Row);
+  try
+    Write(DelegatedRow);
+  finally
+    DelegatedRow.Free;
+  end;
+end;
+
 Procedure TMatrixWriter.Write(const Rows: array of TVirtualMatrixRow);
 begin
   MatrixRows.FCount := Length(Rows);
@@ -773,6 +809,16 @@ begin
     write(Rows.Matrices)
   else
     raise Exception.Create('Invalid iteration count');
+end;
+
+Procedure TMatrixWriter.Write(const Rows: TFunc<Integer,Integer,Float64>);
+begin
+  var DelegatedRows := TDelegatedMatrixRows.Create(Count,Size,Rows);
+  try
+    Write(DelegatedRows);
+  finally
+    DelegatedRows.Free;
+  end;
 end;
 
 Destructor TMatrixWriter.Destroy;
