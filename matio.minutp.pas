@@ -22,6 +22,8 @@ Type
         Row,LastColumn: UInt16;
         Matrix: Byte;
       end;
+    Const
+      Max13Bit = 8191;
     Var
       EOF: Boolean;
       Next: TMatrixRecordHeader;
@@ -35,7 +37,7 @@ Type
   TMinutpMatrixWriter = Class(TMatrixWriter)
   private
     Const
-      Max13Bit = 256*32-1;
+      Max13Bit = 8191;
     Var
       ScalingFactor: Real;
       IntValues: array of Integer;
@@ -106,7 +108,7 @@ begin
       if FileStream.Read(Key,2) <> 2 then
         raise Exception.Create('Error reading Minutp-file');
       ValueSize:= (Key shr 13);  // bit 1-3
-      Nvalues:= (Key and 8191);  // bit 4-16
+      Nvalues:= (Key and Max13Bit);  // bit 4-16
       case ValueSize of
           0: // Fill with Nvalues zeros
              for var Cnt := 1 to Nvalues do
@@ -232,7 +234,7 @@ begin
     var BeneficialRepliRange := 5 div ValueSize; // Beneficial if 5+ValueSize < (Last-Column+1)*ValueSize
     var Repli := true;
     var RepliCount := 0;
-    while (Last < LastColumn) and (Last-Column < Max13Bit) and  // valid range
+    while (Last < LastColumn) and (Last-Column+1 < Max13Bit) and  // valid range
           (GetValueSize(IntValues[Last+1]) = ValueSize) and // same value size
           ((not Repli) or (IntValues[Column] = IntValues[Last+1]) or ((Last-Column) < BeneficialRepliRange)) and // not breaking long repli sequence
           (Repli or (RepliCount < BeneficialRepliRange)) do // not preventing long repli sequence
