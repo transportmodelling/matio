@@ -62,6 +62,7 @@ Type
     Var
       ReaderFormats: TArray<TMatrixReaderFormat>;
       WriterFormats: TArray<TMatrixWriterFormat>;
+    Function IndexLabels(Count: Integer): TArray<String>;
   public
     Class Operator Finalize (var Formats: TMatrixFormats);
   public
@@ -82,11 +83,22 @@ Type
                           const Selection: array of Integer): TMatrixReader; overload;
     Function CreateReader(const [ref] Properties: TPropertySet;
                           const Selection: array of String): TMatrixReader; overload;
+    Function CreateEnumReader(const [ref] Properties: TPropertySet; Size,Count: Integer; Ordered: Boolean = true): TMatrixEnumReader;
     // Create matrix writer
     Function CreateWriter(const [ref] Properties: TPropertySet;
                           const FileLabel: string;
+                          const Count,Size: Integer): TMatrixWriter; overload;
+    Function CreateWriter(const [ref] Properties: TPropertySet;
+                          const FileLabel: string;
                           const MatrixLabels: array of String;
-                          const Size: Integer): TMatrixWriter;
+                          const Size: Integer): TMatrixWriter; overload;
+    Function CreateEnumWriter(const [ref] Properties: TPropertySet;
+                              const FileLabel: string;
+                              const Count,Size: Integer): TMatrixEnumWriter; overload;
+    Function CreateEnumWriter(const [ref] Properties: TPropertySet;
+                              const FileLabel: string;
+                              const MatrixLabels: array of String;
+                              const Size: Integer): TMatrixEnumWriter; overload;
   end;
 
 Var
@@ -223,6 +235,12 @@ begin
     Formats.WriterFormats[Format].Free;
 end;
 
+Function TMatrixFormats.IndexLabels(Count: Integer): TArray<String>;
+begin
+  SetLength(Result,Count);
+  for var Index := 0 to Count-1 do Result[Index] := (Index+1).ToString;
+end;
+
 Procedure TMatrixFormats.RegisterFormat(const Format: TMatrixReaderFormat);
 begin
   var Count := Length(ReaderFormats);
@@ -343,6 +361,22 @@ begin
     Break;
 end;
 
+Function TMatrixFormats.CreateEnumReader(const [ref] Properties: TPropertySet; Size,Count: Integer; Ordered: Boolean = true): TMatrixEnumReader;
+begin
+  var Reader := CreateReader(Properties,Ordered);
+  if Reader <> nil then
+    Result := TMatrixEnumReader.Create(Reader,Size,Count,true)
+  else
+    raise Exception.Create('Error creating matrix reader');
+end;
+
+Function TMatrixFormats.CreateWriter(const [ref] Properties: TPropertySet;
+                                     const FileLabel: string;
+                                     const Count,Size: Integer): TMatrixWriter;
+begin
+  Result := CreateWriter(Properties,FileLabel,IndexLabels(Count),Size);
+end;
+
 Function TMatrixFormats.CreateWriter(const [ref] Properties: TPropertySet;
                                      const FileLabel: string;
                                      const MatrixLabels: array of String;
@@ -356,6 +390,25 @@ begin
     Exit(WriterFormats[WriterFormat].CreateWriter(Properties,FileLabel,MatrixLabels,Size))
   else
     Break;
+end;
+
+Function TMatrixFormats.CreateEnumWriter(const [ref] Properties: TPropertySet;
+                                         const FileLabel: string;
+                                         const Count,Size: Integer): TMatrixEnumWriter;
+begin
+  Result := CreateEnumWriter(Properties,FileLabel,IndexLabels(Count),Size);
+end;
+
+Function TMatrixFormats.CreateEnumWriter(const [ref] Properties: TPropertySet;
+                                         const FileLabel: string;
+                                         const MatrixLabels: array of String;
+                                         const Size: Integer): TMatrixEnumWriter;
+begin
+  var Writer := CreateWriter(Properties,FileLabel,MatrixLabels,Size);
+  if Writer <> nil then
+    Result := TMatrixEnumWriter.Create(Writer,true)
+  else
+    raise Exception.Create('Error creating matrix writer');
 end;
 
 Initialization

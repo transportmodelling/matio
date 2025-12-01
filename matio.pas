@@ -12,7 +12,7 @@ interface
 ////////////////////////////////////////////////////////////////////////////////
 
 Uses
-  System.Classes, System.SysUtils, System.IOUtils, System.Types, PropSet, ArrayHlp, ArrayVal;
+  Classes, SysUtils, System.IOUtils, System.Types, PropSet, ArrayHlp, ArrayVal;
 
 Type
   TFloatType = (ftFloat16,ftFloat32,ftFloat64);
@@ -113,33 +113,18 @@ Type
     Function RowValues(Matrix: Integer): TFloat32ArrayValues;
   end;
 
-  TMatrixIterator = Class
-  private
-    FCount,FSize,Index: Integer;
-    Matrices: TFloat64MatrixRows;
-  strict protected
-    Procedure Yield(const Row: TMatrixRow);
-  public
-    Constructor Create(Count,Size: Integer);
-    Procedure Iterate; virtual; abstract;
-    Destructor Destroy; override;
-  public
-    Property Count: Integer read FCount;
-    Property Size: Integer read FSize;
-  end;
-
   TMatrixFiler = Class
   // TMatrixFiler is the abstract base class for all matrix reader and writer objects
   private
     FFileName: String;
     FCount,FSize,CurrentRow: Integer;
+    Float64MatrixRows: TFloat64MatrixRows;
+    Float32MatrixRows: TFloat32MatrixRows;
   strict protected
     Const
       BufferSize: Integer = 4096;
     Var
       FileStream: TBufferedFileStream;
-      Float64MatrixRows: TFloat64MatrixRows;
-      Float32MatrixRows: TFloat32MatrixRows;
     Procedure SetCount(Count: Integer); virtual;
     Procedure SetSize(Size: Integer);
   public
@@ -153,6 +138,7 @@ Type
 
   TMatrixReader = Class(TMatrixFiler)
   // TMatrixReader is the abstract base class for all format specific matrix reader objects
+  // The Read-method is called once for every row, and reads the data for each matrix in the file
   private
     FFileLabel: String;
     FMatrixLabels: TArray<String>;
@@ -173,7 +159,6 @@ Type
     Procedure Read(const Rows: array of TFloat64MatrixRow); overload;
     Procedure Read(const Rows: array of TFloat32MatrixRow); overload;
     Procedure Read(const Rows: TCustomMatrixRows); overload;
-    Procedure Read(const Rows: TMatrixIterator); overload;
   public
     Property Ordered: Boolean read FOrdered;
     Property FileLabel: String read FFileLabel;
@@ -194,8 +179,26 @@ Type
     Destructor Destroy; override;
   end;
 
+  TMatrixEnumReader = Class
+  // A separate call to the Read-method is required for each matrix in the file.
+  // A call to the NextRow-method indicates all matrices for a specific row have been enumerated.
+  private
+    FloatType: TFloatType;
+    Size,Count,Index: Integer;
+    Reader: TMatrixReader;
+    OwnsReader: Boolean;
+    Function RowReferenceCount(Row: Pointer): Integer;
+  public
+    Constructor Create(const Reader: TMatrixReader; Count,Size: Integer; OwnsReader: Boolean = true);
+    Procedure Read(var Row: TFloat64MatrixRow); overload;
+    Procedure Read(var Row: TFloat32MatrixRow); overload;
+    Procedure NextRow;
+    Destructor Destroy; override;
+  end;
+
   TMatrixWriter = Class(TMatrixFiler)
-  // TMatrixWriter is the abstract base class for all format specific matrix writer objects
+  // TMatrixWriter is the abstract base class for all format specific matrix writer objects.
+  // The Write-method is called once for each row, and writes the data for each matrix in the file.
   private
     Type
       TMatrixRows = Class(TVirtualMatrixRows)
@@ -222,8 +225,23 @@ Type
     Procedure Write(const Rows: array of TFloat64MatrixRow); overload;
     Procedure Write(const Rows: array of TFloat32MatrixRow); overload;
     Procedure Write(const Rows: TVirtualMatrixRows); overload;
-    Procedure Write(const Rows: TMatrixIterator); overload;
     Procedure Write(const Rows: TFunc<Integer,Integer,Float64>); overload;
+    Destructor Destroy; override;
+  end;
+
+  TMatrixEnumWriter = Class
+  // A separate call to the Write-method is required for each matrix in the file.
+  // A call to the NextRow-method indicates all matrices for a specific row have been enumerated.
+  private
+    FloatType: TFloatType;
+    Count: Integer;
+    Writer: TMatrixWriter;
+    OwnsWriter: Boolean;
+  public
+    Constructor Create(const Writer: TMatrixWriter; OwnsWriter: Boolean = true);
+    Procedure Write(const Row: TFloat64MatrixRow); overload;
+    Procedure Write(const Row: TFloat32MatrixRow); overload;
+    Procedure NextRow;
     Destructor Destroy; override;
   end;
 
@@ -415,33 +433,6 @@ end;
 
 ////////////////////////////////////////////////////////////////////////////////
 
-Constructor TMatrixIterator.Create(Count,Size: Integer);
-begin
-  inherited Create;
-  FCount := Count;
-  FSize := Size;
-  Matrices := TFloat64MatrixRows.Create(Count,0);
-  Matrices.FSize := Size;
-end;
-
-Procedure TMatrixIterator.Yield(const Row: TMatrixRow);
-begin
-  if Length(Row) = FSize then
-  begin
-    Matrices.FValues[Index] := Row;
-    Inc(Index);
-  end else
-    raise Exception.Create('Invalid row size');
-end;
-
-Destructor TMatrixIterator.Destroy;
-begin
-  Matrices.Free;
-  inherited Destroy;
-end;
-
-////////////////////////////////////////////////////////////////////////////////
-
 Constructor TMatrixFiler.Create;
 begin
   inherited Create;
@@ -580,16 +571,6 @@ begin
     raise Exception.Create('Rows unassigned');
 end;
 
-Procedure TMatrixReader.Read(const Rows: TMatrixIterator);
-begin
-  Rows.Index := 0;
-  Rows.Iterate;
-  if Rows.Index = Rows.FCount then
-    Read(Rows.Matrices)
-  else
-    raise Exception.Create('Invalid iteration count');
-end;
-
 ////////////////////////////////////////////////////////////////////////////////
 
 Constructor TMaskedMatrixReader.Create(const Reader: TMatrixReader; const Selection: array of Integer);
@@ -676,6 +657,97 @@ end;
 Destructor TMaskedMatrixReader.Destroy;
 begin
   Unmasked.Free;
+  inherited Destroy;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+
+Constructor TMatrixEnumReader.Create(const Reader: TMatrixReader; Count,Size: Integer; OwnsReader: Boolean = true);
+begin
+  inherited Create;
+  Self.Reader := Reader;
+  Self.Size := Size;
+  Self.Count := Count;
+  Self.OwnsReader := OwnsReader;
+end;
+
+Function TMatrixEnumReader.RowReferenceCount(Row: Pointer): Integer;
+begin
+  Result := PInteger(NativeUInt(Row) - SizeOf(NativeInt) - SizeOf(Integer))^;
+end;
+
+Procedure TMatrixEnumReader.Read(var Row: TFloat64MatrixRow);
+begin
+  if Length(Row) = Size then
+  begin
+    // Read the matrices
+    if Index = 0 then
+    begin
+      FloatType := ftFloat64;
+      Reader.Float64MatrixRows.Allocate(Count,Size);
+      Reader.Read(Reader.Float64MatrixRows);
+    end else
+      if FloatType <> ftFloat64 then raise Exception.Create('Inconsistent row type');
+    // Copy result from matrices
+    if Index < Count then
+    begin
+      if RowReferenceCount(Row) = 1 then
+      begin
+        // Exchange rows
+        var XChange := Row;
+        Row := Reader.Float64MatrixRows.FValues[Index];
+        Reader.Float64MatrixRows.FValues[Index] := XChange;
+      end else
+      begin
+        // Multiple references to row, so copy values
+        for var Column := 0 to Size-1 do Row[Column] := Reader.Float64MatrixRows[Index,Column];
+      end;
+      Inc(Index);
+    end;
+  end else
+    raise Exception.Create('Invalid row size');
+end;
+
+Procedure TMatrixEnumReader.Read(var Row: TFloat32MatrixRow);
+begin
+  if Length(Row) = Size then
+  begin
+    // Read the matrices
+    if Index = 0 then
+    begin
+      FloatType := ftFloat32;
+      Reader.Float32MatrixRows.Allocate(Count,Size);
+      Reader.Read(Reader.Float32MatrixRows);
+    end else
+      if FloatType <> ftFloat32 then raise Exception.Create('Inconsistent row type');
+    // Copy result from matrices
+    if Index < Count then
+    begin
+      if RowReferenceCount(Row) = 1 then
+      begin
+        // Exchange rows
+        var XChange := Row;
+        Row := Reader.Float32MatrixRows.FValues[Index];
+        Reader.Float32MatrixRows.FValues[Index] := XChange;
+      end else
+      begin
+        // Multiple references to row, so copy values
+        for var Column := 0 to Size-1 do Row[Column] := Reader.Float32MatrixRows[Index,Column];
+      end;
+      Inc(Index);
+    end;
+  end else
+    raise Exception.Create('Invalid row size');
+end;
+
+Procedure TMatrixEnumReader.NextRow;
+begin
+  Index := 0;
+end;
+
+Destructor TMatrixEnumReader.Destroy;
+begin
+  if OwnsReader then Reader.Free;
   inherited Destroy;
 end;
 
@@ -801,16 +873,6 @@ begin
   else raise Exception.Create('Rows unassigned');
 end;
 
-Procedure TMatrixWriter.Write(const Rows: TMatrixIterator);
-begin
-  Rows.Index := 0;
-  Rows.Iterate;
-  if Rows.Index = Rows.FCount then
-    write(Rows.Matrices)
-  else
-    raise Exception.Create('Invalid iteration count');
-end;
-
 Procedure TMatrixWriter.Write(const Rows: TFunc<Integer,Integer,Float64>);
 begin
   var DelegatedRows := TDelegatedMatrixRows.Create(Count,Size,Rows);
@@ -824,6 +886,79 @@ end;
 Destructor TMatrixWriter.Destroy;
 begin
   MatrixRows.Free;
+  inherited Destroy;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+
+Constructor TMatrixEnumWriter.Create(const Writer: TMatrixWriter; OwnsWriter: Boolean = true);
+begin
+  inherited Create;
+  Self.Writer := Writer;
+  Self.OwnsWriter := OwnsWriter;
+end;
+
+Procedure TMatrixEnumWriter.Write(const Row: TFloat64MatrixRow);
+begin
+  // Set float type
+  if Count = 0 then
+  begin
+    FloatType := ftFloat64;
+    Writer.Float64MatrixRows.FSize := Length(Row);
+  end else
+    if FloatType <> ftFloat64 then raise Exception.Create('Inconsistent row type');
+  // Add row
+  if Length(Row) = Writer.Float64MatrixRows.FSize then
+    if Count < Writer.Count then
+    begin
+      Inc(Count);
+      Writer.Float64MatrixRows.FCount := Count;
+      if Length(Writer.Float64MatrixRows.FValues) < Count then
+        SetLength(Writer.Float64MatrixRows.FValues,Count+4);
+      Writer.Float64MatrixRows.FValues[Count-1] := Row;
+    end
+  else
+    raise Exception.Create('Matrix rows must have the same size');
+end;
+
+Procedure TMatrixEnumWriter.Write(const Row: TFloat32MatrixRow);
+begin
+  // Set float type
+  if Count = 0 then
+  begin
+    FloatType := ftFloat32;
+    Writer.Float32MatrixRows.FSize := Length(Row);
+  end else
+    if FloatType <> ftFloat32 then raise Exception.Create('Inconsistent row type');
+  // Add row
+  if Length(Row) = Writer.Float32MatrixRows.FSize then
+    if Count < Writer.Count then
+    begin
+      Inc(Count);
+      Writer.Float32MatrixRows.FCount := Count;
+      if Length(Writer.Float32MatrixRows.FValues) < Count then
+        SetLength(Writer.Float32MatrixRows.FValues,Count+4);
+      Writer.Float32MatrixRows.FValues[Count-1] := Row;
+    end
+  else
+    raise Exception.Create('Matrix rows must have the same size');
+end;
+
+Procedure TMatrixEnumWriter.NextRow;
+begin
+  if Count > 0 then
+  begin
+    case FloatType of
+      ftFloat32: Writer.Write(Writer.Float32MatrixRows);
+      ftFloat64: Writer.Write(Writer.Float64MatrixRows);
+    end;
+    Count := 0;
+  end;
+end;
+
+Destructor TMatrixEnumWriter.Destroy;
+begin
+  if OwnsWriter then Writer.Free;
   inherited Destroy;
 end;
 
