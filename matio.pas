@@ -187,7 +187,6 @@ Type
     Size,Count,Index: Integer;
     Reader: TMatrixReader;
     OwnsReader: Boolean;
-    Function RowReferenceCount(Row: Pointer): Integer;
   public
     Constructor Create(const Reader: TMatrixReader; Count,Size: Integer; OwnsReader: Boolean = true);
     Procedure Read(var Row: TFloat64MatrixRow); overload;
@@ -671,11 +670,6 @@ begin
   Self.OwnsReader := OwnsReader;
 end;
 
-Function TMatrixEnumReader.RowReferenceCount(Row: Pointer): Integer;
-begin
-  Result := PInteger(NativeUInt(Row) - SizeOf(NativeInt) - SizeOf(Integer))^;
-end;
-
 Procedure TMatrixEnumReader.Read(var Row: TFloat64MatrixRow);
 begin
   if Length(Row) = Size then
@@ -691,7 +685,7 @@ begin
     // Copy result from matrices
     if Index < Count then
     begin
-      if RowReferenceCount(Row) = 1 then
+      if TArrayInfo.RefCount(Row) = 1 then
       begin
         // Exchange rows
         var XChange := Row;
@@ -723,7 +717,7 @@ begin
     // Copy result from matrices
     if Index < Count then
     begin
-      if RowReferenceCount(Row) = 1 then
+      if TArrayInfo.RefCount(Row) = 1 then
       begin
         // Exchange rows
         var XChange := Row;
