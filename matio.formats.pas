@@ -83,7 +83,7 @@ Type
                           const Selection: array of Integer): TMatrixReader; overload;
     Function CreateReader(const [ref] Properties: TPropertySet;
                           const Selection: array of String): TMatrixReader; overload;
-    Function CreateEnumReader(const [ref] Properties: TPropertySet; Size,Count: Integer; Ordered: Boolean = true): TMatrixEnumReader;
+    Function CreateEnumReader(const [ref] Properties: TPropertySet; Count,Size: Integer; Ordered: Boolean = true): TMatrixEnumReader;
     // Create matrix writer
     Function CreateWriter(const [ref] Properties: TPropertySet;
                           const FileLabel: string;
@@ -361,11 +361,11 @@ begin
     Break;
 end;
 
-Function TMatrixFormats.CreateEnumReader(const [ref] Properties: TPropertySet; Size,Count: Integer; Ordered: Boolean = true): TMatrixEnumReader;
+Function TMatrixFormats.CreateEnumReader(const [ref] Properties: TPropertySet; Count,Size: Integer; Ordered: Boolean = true): TMatrixEnumReader;
 begin
   var Reader := CreateReader(Properties,Ordered);
   if Reader <> nil then
-    Result := TMatrixEnumReader.Create(Reader,Size,Count,true)
+    Result := TMatrixEnumReader.Create(Reader,Count,Size,true)
   else
     raise Exception.Create('Error creating matrix reader');
 end;
