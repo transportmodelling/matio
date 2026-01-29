@@ -910,7 +910,8 @@ begin
       if Length(Writer.Float64MatrixRows.FValues) < Count then
         SetLength(Writer.Float64MatrixRows.FValues,Count+4);
       Writer.Float64MatrixRows.FValues[Count-1] := Row;
-    end
+    end else
+      raise Exception.Create('Writing too many matrices')
   else
     raise Exception.Create('Matrix rows must have the same size');
 end;
@@ -933,7 +934,8 @@ begin
       if Length(Writer.Float32MatrixRows.FValues) < Count then
         SetLength(Writer.Float32MatrixRows.FValues,Count+4);
       Writer.Float32MatrixRows.FValues[Count-1] := Row;
-    end
+    end else
+      raise Exception.Create('Writing too many matrices')
   else
     raise Exception.Create('Matrix rows must have the same size');
 end;
