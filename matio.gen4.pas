@@ -12,7 +12,7 @@ interface
 ////////////////////////////////////////////////////////////////////////////////
 
 Uses
-  Classes, SysUtils, Types, ZLib, ArrayBld, matio, matio.gen4.float16;
+  Classes, SysUtils, Types, ZLib, ArrBld, matio, matio.gen4.float16;
 
 Type
   T4GCompression = (cpNone,cpGZip);

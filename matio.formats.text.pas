@@ -12,7 +12,7 @@ interface
 ////////////////////////////////////////////////////////////////////////////////
 
 Uses
-  SysUtils, Types, PropSet, Parse, ArrayBld, matio, matio.formats, matio.text;
+  SysUtils, Types, PropSet, Parse, ArrBld, matio, matio.formats, matio.text;
 
 Type
   TTextMatrixReaderFormat = Class(TMatrixReaderFormat)

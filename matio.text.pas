@@ -12,7 +12,7 @@ interface
 ////////////////////////////////////////////////////////////////////////////////
 
 Uses
-  Classes, SysUtils, Math, Types, Parse, ArrayBld, matio;
+  Classes, SysUtils, Math, Types, Parse, ArrBld, matio;
 
 Type
   TTextMatrixReader = Class(TMatrixReader)

@@ -12,7 +12,7 @@ interface
 ////////////////////////////////////////////////////////////////////////////////
 
 Uses
-  Classes, SysUtils, System.IOUtils, System.Types, PropSet, ArrayHlp, ArrayVal;
+  Classes, SysUtils, System.IOUtils, System.Types, PropSet, ArrHlp, ArrVal;
 
 Type
   TFloatType = (ftFloat16,ftFloat32,ftFloat64);

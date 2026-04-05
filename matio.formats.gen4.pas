@@ -12,7 +12,7 @@ interface
 ////////////////////////////////////////////////////////////////////////////////
 
 Uses
-  SysUtils, Types, Propset, ArrayBld, matio, matio.formats, matio.gen4;
+  SysUtils, Types, Propset, ArrBld, matio, matio.formats, matio.gen4;
 
 Type
   T4GMatrixReaderFormat = Class(TMatrixReaderFormat)

@@ -12,7 +12,7 @@ interface
 ////////////////////////////////////////////////////////////////////////////////
 
 Uses
-  SysUtils, Types, ArrayBld, matio, matio.hdf5.dll;
+  SysUtils, Types, ArrBld, matio, matio.hdf5.dll;
 
 Type
   THdf5Precision = ftFloat32..ftFloat64;

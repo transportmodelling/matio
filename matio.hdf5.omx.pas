@@ -14,7 +14,7 @@ interface
 ////////////////////////////////////////////////////////////////////////////////
 
 Uses
-  SysUtils, Types, ArrayBld, matio, matio.hdf5.dll, matio.hdf5;
+  SysUtils, Types, ArrBld, matio, matio.hdf5.dll, matio.hdf5;
 
 Type
   TOMXMatrixReader = Class(THdf5MatrixReader)

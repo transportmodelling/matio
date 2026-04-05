@@ -12,7 +12,7 @@ interface
 ////////////////////////////////////////////////////////////////////////////////
 
 Uses
-  SysUtils, Types, ArrayBld, matio, matio.hdf5.dll, matio.hdf5;
+  SysUtils, Types, ArrBld, matio, matio.hdf5.dll, matio.hdf5;
 
 Type
   TCubeMatrixReader = Class(THdf5MatrixReader)
