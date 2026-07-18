@@ -1,0 +1,165 @@
+unit matio.writer.minutp;
+
+////////////////////////////////////////////////////////////////////////////////
+//
+// Author: Jaap Baak
+// https://github.com/transportmodelling/matio
+//
+////////////////////////////////////////////////////////////////////////////////
+
+////////////////////////////////////////////////////////////////////////////////
+interface
+////////////////////////////////////////////////////////////////////////////////
+
+Uses
+  SysUtils, Classes, matio, matio.writer;
+
+Type
+  TMinutpMatrixWriter = Class(TMatrixWriter)
+  private
+    Const
+      Max13Bit = 8191;
+    Var
+      ScalingFactor: Real;
+      IntValues: array of Integer;
+    Function GetValueSize(Item: Int32): Byte;
+    Procedure WriteToFile(Value,NBytes: Integer);
+    Procedure Write(const CurrentMatrix,CurrentRow,LastColumn: Integer; const Row: array of Integer); overload;
+  strict protected
+    Procedure Write(const CurrentRow: Integer; const Rows: TVirtualMatrixRows); overload; override;
+  public
+    Constructor Create(Const FileName,FileLabel: String;
+                       Const Count,Size: Integer;
+                       Const Precision: Byte = 0); overload;
+  end;
+
+////////////////////////////////////////////////////////////////////////////////
+implementation
+////////////////////////////////////////////////////////////////////////////////
+
+Constructor TMinutpMatrixWriter.Create(Const FileName,FileLabel: String;
+                                       Const Count,Size: Integer;
+                                       const Precision: Byte = 0);
+begin
+  inherited Create(FileName,Count,Size);
+  // Set ScalingFactor
+  ScalingFactor := 1;
+  for var Cnt := 1 to Precision do ScalingFactor := ScalingFactor*10;
+  // write file header
+  var FormatIndicator := 45;
+  var Writer := TBinaryWriter.Create(FileStream,TEncoding.ASCII);
+  try
+    FileStream.Write(Size,2);
+    FileStream.Write(Count,2);
+    FileStream.Write(Size,2);
+    if Length(FileLabel) < 60 then
+    begin
+      Writer.Write(FileLabel.ToCharArray);
+      for var Space := Length(FileLabel)+1 to 60 do Writer.Write(' ');
+    end else Writer.Write(Copy(FileLabel,1,60).ToCharArray);
+    Writer.Write(' MATRIX'.ToCharArray);
+    FileStream.write(FormatIndicator,1);
+  finally
+    Writer.Free;
+  end;
+  // Allocate IntValues
+  SetLength(IntValues,Size);
+end;
+
+Function TMinutpMatrixWriter.GetValueSize(Item: Int32): Byte;
+Const
+  MaxByte=256-1;
+  MaxWord=256*256-1;
+  Max3Byte=256*256*256-1;
+begin
+  if Item < 0 then Result := 4 else
+  if Item<=MaxByte then Result:=1 else
+  if Item<=MaxWord then Result:=2 else
+  if Item<=Max3Byte then Result:=3 else
+  Result:=4;
+end;
+
+Procedure TMinutpMatrixWriter.WriteToFile(Value,NBytes: Integer);
+begin
+  FileStream.Write(Value,NBytes)
+end;
+
+Procedure TMinutpMatrixWriter.Write(const CurrentMatrix,CurrentRow,LastColumn: Integer; const Row: array of Integer);
+Const
+  RepliKey: Word = 7 shl 13;
+Var
+  Key: Word;
+begin
+  // Write matrix record header
+  WriteToFile(CurrentRow+1,2);
+  WriteToFile(CurrentMatrix+1,1);
+  WriteToFile(LastColumn+1,2);
+  // Write cells
+  var Last := -1;
+  while Last < LastColumn do
+  begin
+    // Determine range with same value size
+    Inc(Last);
+    var Column := Last;
+    var ValueSize := GetValueSize(IntValues[Last]);
+    var BeneficialRepliRange := 5 div ValueSize; // Beneficial if 5+ValueSize < (Last-Column+1)*ValueSize
+    var Repli := true;
+    var RepliCount := 0;
+    while (Last < LastColumn) and (Last-Column+1 < Max13Bit) and  // valid range
+          (GetValueSize(IntValues[Last+1]) = ValueSize) and // same value size
+          ((not Repli) or (IntValues[Column] = IntValues[Last+1]) or ((Last-Column) < BeneficialRepliRange)) and // not breaking long repli sequence
+          (Repli or (RepliCount < BeneficialRepliRange)) do // not preventing long repli sequence
+    begin
+      Inc(Last);
+      if IntValues[Last] = IntValues[Last-1] then Inc(RepliCount) else RepliCount := 0;
+      Repli := Repli and (IntValues[Column] = IntValues[Last]);
+    end;
+    if (not Repli) and (RepliCount >= BeneficialRepliRange) then Last := Last-RepliCount-1;
+    // write range to file
+    if Repli and (Last > Column) then
+    begin
+      if IntValues[Column] = 0 then
+      begin
+        Key:=Last-Column+1;
+        WriteToFile(Key,2);
+      end else
+      begin
+        Key:= RepliKey + Last-Column+1;
+        WriteToFile(Key,2);
+        WriteToFile(ValueSize,1);
+        WriteToFile(IntValues[Column],ValueSize);
+      end
+    end else
+    begin
+      Key:=(ValueSize shl 13) + Last-Column+1;
+      WriteToFile(Key,2);
+      while Column <= Last do
+      begin
+        WriteToFile(IntValues[Column],ValueSize);
+        Inc(Column);
+      end;
+    end;
+  end;
+end;
+
+Procedure TMinutpMatrixWriter.Write(const CurrentRow: Integer; const Rows: TVirtualMatrixRows);
+Var
+  IntValue: Int32;
+begin
+  for var Matrix := 0 to Count-1 do
+  begin
+    // Set integer values
+    for var Column := 0 to Size-1 do
+    begin
+      var ScaledValue := ScalingFactor*Rows[Matrix,Column];
+      if ScaledValue < 0 then
+        if ScaledValue >= -MaxInt-1 then IntValue := Round(ScaledValue) else IntValue := -MaxInt-1
+      else
+        if ScaledValue <= MaxInt then IntValue := Round(ScaledValue) else IntValue := MaxInt;
+      IntValues[Column] := IntValue;
+    end;
+    Write(Matrix,CurrentRow,Size-1,IntValues);
+  end;
+end;
+
+end.
