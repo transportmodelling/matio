@@ -21,6 +21,7 @@ Type
   private
     CurrentRow: Integer;
     Reader: TMatrixReader;
+    Procedure SetReader(const MatrixReader: TMatrixReader; const Count,Size: Integer);
     Function GetFileLabel: String;
     Function GetMatrixLabels(Matrix: Integer): String;
   public
@@ -59,11 +60,7 @@ Constructor TMatrixRowsReader.Create(const [ref] Config: TKeyValuePairs;
                                      const Count,Size: Integer);
 begin
   inherited Create;
-  Reader := MatrixFormats.CreateReader(Config);
-  if Reader <> nil then
-    Allocate(Count,Size)
-  else
-    raise Exception.Create('Error opening matrix file');
+  SetReader(MatrixFormats.CreateReader(Config),Count,Size);
 end;
 
 Constructor TMatrixRowsReader.Create(const [ref] Config: TKeyValuePairs;
@@ -71,11 +68,7 @@ Constructor TMatrixRowsReader.Create(const [ref] Config: TKeyValuePairs;
                                      const Size: Integer);
 begin
   inherited Create;
-  Reader := MatrixFormats.CreateReader(Config,Selection);
-  if Reader <> nil then
-    Allocate(Length(Selection),Size)
-  else
-    raise Exception.Create('Error opening matrix file');
+  SetReader(MatrixFormats.CreateReader(Config,Selection),Length(Selection),Size);
 end;
 
 Constructor TMatrixRowsReader.Create(const [ref] Config: TKeyValuePairs;
@@ -83,9 +76,14 @@ Constructor TMatrixRowsReader.Create(const [ref] Config: TKeyValuePairs;
                                      const Size: Integer);
 begin
   inherited Create;
-  Reader := MatrixFormats.CreateReader(Config,Selection);
+  SetReader(MatrixFormats.CreateReader(Config,Selection),Length(Selection),Size);
+end;
+
+Procedure TMatrixRowsReader.SetReader(const MatrixReader: TMatrixReader; const Count,Size: Integer);
+begin
+  Reader := MatrixReader;
   if Reader <> nil then
-    Allocate(Length(Selection),Size)
+    Allocate(Count,Size)
   else
     raise Exception.Create('Error opening matrix file');
 end;

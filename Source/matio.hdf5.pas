@@ -89,6 +89,7 @@ Type
     Function H5Screate(ClassType: Integer): Int64;
     Function H5Screate_simple(Rank: Integer; Dims: PUInt64): Int64;
     Procedure H5Sselect_hyperslab(SpaceId: Int64; op: Integer; const start,stride,count,block);
+    Procedure SelectRowHyperslab(SpaceId: Int64; Row: Integer; RowSize: UInt64);
     Function H5Acreate2(FileId: Int64; AttributeName: AnsiString; TypeId: Int64;
                         SpaceId: Int64; acpl_id: Int64; aapl_id: Int64): Int64;
     Function H5Aopen_by_name(ObjId: Int64; obj_name,attr_name: AnsiString; aapl_id: Int64; lapl_id: Int64): Int64;
@@ -311,6 +312,20 @@ Procedure THdf5Dll.H5Sselect_hyperslab(SpaceId: Int64; op: Integer; const start,
 begin
   if FH5Sselect_hyperslab(SpaceId,op,@start,@stride,@count,@block) < 0 then
     raise Exception.Create('Error calling H5Sselect_hyperslab')
+end;
+
+Procedure THdf5Dll.SelectRowHyperslab(SpaceId: Int64; Row: Integer; RowSize: UInt64);
+// Selects the hyperslab holding the values of a single matrix row
+Var
+  Offset,Ones,Chunk: array[0..1] of UInt64;
+begin
+  Offset[0] := Row;
+  Offset[1] := 0;
+  Ones[0] := 1;
+  Ones[1] := 1;
+  Chunk[0] := 1;
+  Chunk[1] := RowSize;
+  H5Sselect_hyperslab(SpaceId,H5S_SELECT_SET,Offset,Ones,Chunk,Ones);
 end;
 
 Function THdf5Dll.H5Acreate2(FileId: Int64; AttributeName: AnsiString; TypeId: Int64;

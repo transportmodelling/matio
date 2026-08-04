@@ -17,8 +17,6 @@ Uses
 Type
   THdf5MatrixWriter = Class(TMatrixWriter)
   private
-    Const
-      Single: array[0..1] of UInt64 = (1,1);
     Var
       FPrecision: TFloatType;
       RowSpaceId: Int64;
@@ -113,14 +111,10 @@ begin
 end;
 
 Procedure THdf5MatrixWriter.Write(const CurrentRow: Integer; const Rows: TVirtualMatrixRows);
-Var
-  Offset: array[0..1] of UInt64;
 begin
-  Offset[0] := CurrentRow;
-  Offset[1] := 0;
   for var Matrix := 0 to Count-1 do
   begin
-    Hdf5Dll.H5Sselect_hyperslab(MatrixDataSpaceIds[Matrix],Hdf5Dll.H5S_SELECT_SET,Offset,Single,ChunkSize,Single);
+    Hdf5Dll.SelectRowHyperslab(MatrixDataSpaceIds[Matrix],CurrentRow,Size);
     case FPrecision of
       ftFloat32:
         begin
