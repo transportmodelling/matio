@@ -15,6 +15,16 @@ Uses
   Classes, SysUtils, Types, Parse, matio, matio.writer;
 
 Type
+  TTextMatrixWriterSettings = record
+    FormatSettings: TFormatSettings;
+    Header: Boolean;
+    Delimiter: TDelimiter;
+    Decimals: Integer;
+    Encoding: TEncoding;
+    WriteByteOrderMark: Boolean;
+    Class Operator Initialize(out Settings: TTextMatrixWriterSettings);
+  end;
+
   TTextMatrixWriter = Class(TMatrixWriter)
   private
     Class Var
@@ -36,21 +46,11 @@ Type
   public
     Constructor Create(const FileName: String;
                        const MatrixLabels: array of String;
-                       const Size: Integer;
-                       const Header: Boolean = true;
-                       const Delimiter: TDelimiter = Tab;
-                       const Decimals: Integer = 3;
-                       const Encoding: TEncoding = nil;
-                       const WriteByteOrderMark: Boolean = false); overload;
+                       const Size: Integer); overload;
     Constructor Create(const FileName: String;
                        const MatrixLabels: array of String;
                        const Size: Integer;
-                       const FormatSettings: TFormatSettings;
-                       const Header: Boolean = true;
-                       const Delimiter: TDelimiter = Tab;
-                       const Decimals: Integer = 3;
-                       const Encoding: TEncoding = nil;
-                       const WriteByteOrderMark: Boolean = false); overload;
+                       const Settings: TTextMatrixWriterSettings); overload;
     Destructor Destroy; override;
   end;
 
@@ -60,6 +60,18 @@ implementation
 
 Const
   Delimiters: array[TDelimiter] of Char = (',',#9,';',#9);
+
+Class Operator TTextMatrixWriterSettings.Initialize(out Settings: TTextMatrixWriterSettings);
+begin
+  Settings.FormatSettings := System.SysUtils.FormatSettings;
+  Settings.Header := true;
+  Settings.Delimiter := Tab;
+  Settings.Decimals := 3;
+  Settings.Encoding := nil;
+  Settings.WriteByteOrderMark := false;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
 
 Class Constructor TTextMatrixWriter.Create;
 begin
@@ -83,48 +95,39 @@ end;
 
 Constructor TTextMatrixWriter.Create(const FileName: String;
                                      const MatrixLabels: array of String;
-                                     const Size: Integer;
-                                     const Header: Boolean = true;
-                                     const Delimiter: TDelimiter = Tab;
-                                     const Decimals: Integer = 3;
-                                     const Encoding: TEncoding = nil;
-                                     const WriteByteOrderMark: Boolean = false);
+                                     const Size: Integer);
+Var
+  Settings: TTextMatrixWriterSettings;
 begin
-  Create(FileName,MatrixLabels,Size,System.SysUtils.FormatSettings,
-         Header,Delimiter,Decimals,Encoding,WriteByteOrderMark);
+  Create(FileName,MatrixLabels,Size,Settings);
 end;
 
 Constructor TTextMatrixWriter.Create(const FileName: String;
                                      const MatrixLabels: array of String;
                                      const Size: Integer;
-                                     const FormatSettings: TFormatSettings;
-                                     const Header: Boolean = true;
-                                     const Delimiter: TDelimiter = Tab;
-                                     const Decimals: Integer = 3;
-                                     const Encoding: TEncoding = nil;
-                                     const WriteByteOrderMark: Boolean = false);
+                                     const Settings: TTextMatrixWriterSettings);
 begin
   inherited Create(FileName,Length(MatrixLabels),Size);
   // Create writer
-  if Encoding <> nil then
-    StreamWriter := TStreamWriter.Create(FileStream,Encoding,BufferSize)
+  if Settings.Encoding <> nil then
+    StreamWriter := TStreamWriter.Create(FileStream,Settings.Encoding,BufferSize)
   else
     StreamWriter := TStreamWriter.Create(FileStream,TEncoding.ASCII,BufferSize);
-  if not WriteByteOrderMark then FileStream.Size := 0;
+  if not Settings.WriteByteOrderMark then FileStream.Size := 0;
   // Set format settings
-  TextFormatSettings.DecimalSeparator := FormatSettings.DecimalSeparator;
-  TextFormatSettings.ThousandSeparator := FormatSettings.ThousandSeparator;
+  TextFormatSettings.DecimalSeparator := Settings.FormatSettings.DecimalSeparator;
+  TextFormatSettings.ThousandSeparator := Settings.FormatSettings.ThousandSeparator;
   // Set delimiter
-  Delim := Delimiters[Delimiter];
+  Delim := Delimiters[Settings.Delimiter];
   // Set float format
   FloatFormat := '0';
-  if Decimals > 0 then
+  if Settings.Decimals > 0 then
   begin
     FloatFormat := FloatFormat + '.';
-    for var Decimal := 1 to Decimals do FloatFormat := FloatFormat + '#';
+    for var Decimal := 1 to Settings.Decimals do FloatFormat := FloatFormat + '#';
   end;
   // Write header
-  if Header then
+  if Settings.Header then
   begin
     StreamWriter.Write(RowLabel);
     StreamWriter.Write(Delim+ColumnLabel);

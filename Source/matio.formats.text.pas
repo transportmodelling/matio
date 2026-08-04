@@ -29,8 +29,6 @@ Type
   end;
 
   TTextMatrixWriterformat = Class(TMatrixWriterFormat)
-  private
-    TextFormatSettings: TFormatSettings;
   strict protected
     Procedure AppendFormatProperties(var Config: TKeyValuePairs); override;
   public
@@ -149,17 +147,17 @@ begin
   if SameText(Config.Str(FormatProperty),Format) then
   begin
     var ExtendedConfig := ExtendProperties(Config);
-    var Encoding := TEncoding.GetEncoding(ExtendedConfig.Str(EncodingProperty));
-    var Decimals := ExtendedConfig.Int(DecimalsProperty);
-    var Header := BoolPropertyValue(ExtendedConfig.Str(HeaderProperty),'header');
-    TextFormatSettings.DecimalSeparator :=
+    var Settings: TTextMatrixWriterSettings;
+    Settings.Encoding := TEncoding.GetEncoding(ExtendedConfig.Str(EncodingProperty));
+    Settings.Decimals := ExtendedConfig.Int(DecimalsProperty);
+    Settings.Header := BoolPropertyValue(ExtendedConfig.Str(HeaderProperty),'header');
+    Settings.FormatSettings.DecimalSeparator :=
       Separators[OptionIndex(ExtendedConfig.Str(DecimalSeparatorProperty),SeparatorOptions,'decimal separator',1)];
-    TextFormatSettings.ThousandSeparator :=
+    Settings.FormatSettings.ThousandSeparator :=
       Separators[OptionIndex(ExtendedConfig.Str(ThousandSeparatorProperty),SeparatorOptions,'thousand separator')];
-    var Delimiter := TDelimiter(OptionIndex(ExtendedConfig.Str(DelimiterProperty),DelimiterOptions,'delimiter'));
-    var WriteBOM := BoolPropertyValue(ExtendedConfig.Str(BOMProperty),'bom');
-    Result := TTextMatrixWriter.Create(ExtendedConfig.Path(FileProperty),MatrixLabels,Size,
-                                       TextFormatSettings,Header,Delimiter,Decimals,Encoding,WriteBOM);
+    Settings.Delimiter := TDelimiter(OptionIndex(ExtendedConfig.Str(DelimiterProperty),DelimiterOptions,'delimiter'));
+    Settings.WriteByteOrderMark := BoolPropertyValue(ExtendedConfig.Str(BOMProperty),'bom');
+    Result := TTextMatrixWriter.Create(ExtendedConfig.Path(FileProperty),MatrixLabels,Size,Settings);
   end else
     raise Exception.Create('Invalid format-property');
 end;
