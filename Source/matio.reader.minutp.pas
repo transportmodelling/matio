@@ -28,6 +28,9 @@ Type
       EOF: Boolean;
       Next: TMatrixRecordHeader;
       ScalingFactor: Real;
+    Procedure ZeroizeColumns(const Rows: TCustomMatrixRows; const Matrix,FirstColumn: Integer);
+    Procedure ReadRecordHeader(const CurrentRow,LastMatrix: Integer);
+    Procedure ReadValues(const Rows: TCustomMatrixRows);
   protected
     Procedure Read(const CurrentRow: Integer; const Rows: TCustomMatrixRows); override;
   public
@@ -67,83 +70,90 @@ begin
   end;
 end;
 
-Procedure TMinutpMatrixReader.Read(const CurrentRow: Integer; const Rows: TCustomMatrixRows);
+Procedure TMinutpMatrixReader.ZeroizeColumns(const Rows: TCustomMatrixRows;
+                                             const Matrix,FirstColumn: Integer);
+begin
+  for var Column := FirstColumn to Size-1 do Rows[Matrix,Column] := 0.0;
+end;
+
+Procedure TMinutpMatrixReader.ReadRecordHeader(const CurrentRow,LastMatrix: Integer);
+// Reads the header of the next data record and checks the row and matrix order
+begin
+  EOF := (FileStream.read(Next.Row,2) = 0);
+  if not EOF then
+  begin
+    if (FileStream.read(Next.Matrix,1) <> 1)
+    or  (FileStream.read(Next.LastColumn,2) <> 2) then
+      raise Exception.Create('Error reading Minutp-file');
+    if (Next.Row <= CurrentRow)
+    or ((Next.Row = CurrentRow+1) and (Next.Matrix-1 <= LastMatrix)) then
+      raise Exception.Create('Error while reading mtp-file!');
+  end;
+end;
+
+Procedure TMinutpMatrixReader.ReadValues(const Rows: TCustomMatrixRows);
+// Reads the compressed values of the current data record into its matrix row
 Var
   ValueSize: Byte;
-  Column: Integer;
   Key,NValues: Word;
   NextValue,RepliData: LongInt;
 begin
-  var LastMatrix := -1;
-  // Read records
-  while (not EOF) and (Next.Row = CurrentRow+1) do
+  var Column := 0;
+  var Matrix := Next.Matrix-1;
+  while Column < Next.LastColumn do
   begin
-    // Zeroize missing matrices
-    for var Matrix := LastMatrix+1 to Next.Matrix-2 do
-    for Column := 0 to Size-1 do
-    Rows[Matrix,Column] := 0.0;
-    // Read record
-    Column := 0;
-    LastMatrix := Next.Matrix-1;
-    while Column < Next.LastColumn do
-    begin
-      if FileStream.Read(Key,2) <> 2 then
-        raise Exception.Create('Error reading Minutp-file');
-      ValueSize:= (Key shr 13);  // bit 1-3
-      Nvalues:= (Key and Max13Bit);  // bit 4-16
-      case ValueSize of
-          0: // Fill with Nvalues zeros
+    if FileStream.Read(Key,2) <> 2 then
+      raise Exception.Create('Error reading Minutp-file');
+    ValueSize:= (Key shr 13);  // bit 1-3
+    Nvalues:= (Key and Max13Bit);  // bit 4-16
+    case ValueSize of
+        0: // Fill with Nvalues zeros
+           for var Cnt := 1 to Nvalues do
+           begin
+             Rows[Matrix,Column] := 0.0;
+             Inc(Column);
+           end;
+     1..4: // Read Nvalues vars with size 1..4
+           for var Cnt := 1 to Nvalues do
+           begin
+             NextValue := 0;
+             if FileStream.Read(NextValue,ValueSize) <> ValueSize then
+               raise Exception.Create('Error reading Minutp-file');
+             Rows[Matrix,Column] := ScalingFactor*NextValue;
+             Inc(Column);
+           end;
+        7: // Read Next byte=size; Read var with this Size; fill with Nvalues vars
+           begin
+             if FileStream.read(ValueSize,1) <> 1 then
+               raise Exception.Create('Error reading Minutp-file');
+             RepliData:=0;
+             if FileStream.Read(RepliData,ValueSize) <> ValueSize then
+               raise Exception.Create('Error reading Minutp-file');
              for var Cnt := 1 to Nvalues do
              begin
-               Rows[Next.Matrix-1,Column] := 0.0;
+               Rows[Matrix,Column] := ScalingFactor*RepliData;
                Inc(Column);
              end;
-       1..4: // Read Nvalues vars with size 1..4
-             for var Cnt := 1 to Nvalues do
-             begin
-               NextValue := 0;
-               if FileStream.Read(NextValue,ValueSize) <> ValueSize then
-                 raise Exception.Create('Error reading Minutp-file');
-               Rows[Next.Matrix-1,Column] := ScalingFactor*NextValue;
-               Inc(Column);
-             end;
-          7: // Read Next byte=size; Read var with this Size; fill with Nvalues vars
-             begin
-               if FileStream.read(ValueSize,1) <> 1 then
-                 raise Exception.Create('Error reading Minutp-file');
-               RepliData:=0;
-               if FileStream.Read(RepliData,ValueSize) <> ValueSize then
-                 raise Exception.Create('Error reading Minutp-file');
-               for var Cnt := 1 to Nvalues do
-               begin
-                 Rows[Next.Matrix-1,Column] := ScalingFactor*RepliData;
-                 Inc(Column);
-               end;
-             end;
-        else raise exception.create('Error reading Minutp-file!');
-      end;
-    end;
-    // Zeroize missing columns
-    if Next.LastColumn-1 < Size-1 then
-    for Column := Next.LastColumn to Size-1 do
-    Rows[Next.Matrix-1,Column] := 0.0;
-    // Read next header record
-    EOF := (FileStream.read(Next.Row,2) = 0);
-    if not EOF then
-    begin
-      if (FileStream.read(Next.Matrix,1) <> 1)
-      or  (FileStream.read(Next.LastColumn,2) <> 2) then
-        raise Exception.Create('Error reading Minutp-file');
-      if (Next.Row <= CurrentRow)
-      or ((Next.Row = CurrentRow+1) and (Next.Matrix-1 <= LastMatrix)) then
-        raise Exception.Create('Error while reading mtp-file!');
+           end;
+      else raise exception.create('Error reading Minutp-file!');
     end;
   end;
-  // Zeroize missing matrices
-  if LastMatrix < Count-1 then
-  for var Matrix := LastMatrix+1 to Count-1 do
-  for Column := 0 to Size-1 do
-  Rows[Matrix,Column] := 0.0;
+end;
+
+Procedure TMinutpMatrixReader.Read(const CurrentRow: Integer; const Rows: TCustomMatrixRows);
+begin
+  var LastMatrix := -1;
+  // Read the data records of the current row
+  while (not EOF) and (Next.Row = CurrentRow+1) do
+  begin
+    for var Matrix := LastMatrix+1 to Next.Matrix-2 do ZeroizeColumns(Rows,Matrix,0);
+    LastMatrix := Next.Matrix-1;
+    ReadValues(Rows);
+    ZeroizeColumns(Rows,Next.Matrix-1,Next.LastColumn);
+    ReadRecordHeader(CurrentRow,LastMatrix);
+  end;
+  // Zeroize the matrices without data records
+  for var Matrix := LastMatrix+1 to Count-1 do ZeroizeColumns(Rows,Matrix,0);
 end;
 
 end.
