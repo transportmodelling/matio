@@ -71,6 +71,7 @@ Type
       FFileName: String;
       FCount,FSize,CurrentRow: Integer;
       FileStream: TBufferedFileStream;
+    Class Function CheckedRowSize<T>(const Rows: TArray<TArray<T>>): Integer;
     Procedure SetCount(Count: Integer); virtual;
     Procedure SetSize(Size: Integer);
     Procedure SetRowsTargetMatrices(const Rows: TVirtualMatrixRows; const TargetMatrices: TArray<Integer>);
@@ -152,6 +153,17 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
+
+Class Function TMatrixFiler.CheckedRowSize<T>(const Rows: TArray<TArray<T>>): Integer;
+begin
+  Result := 0;
+  if Length(Rows) > 0 then
+  begin
+    Result := Length(Rows[0]);
+    for var Matrix := low(Rows) to high(Rows) do
+    if Length(Rows[Matrix]) <> Result then raise Exception.Create('Matrix rows must have the same size');
+  end;
+end;
 
 Procedure TMatrixFiler.SetCount(Count: Integer);
 begin

@@ -18,6 +18,8 @@ Type
   TMatrixWriter = Class(TMatrixFiler)
   // TMatrixWriter is the abstract base class for all format specific matrix writer objects.
   // The Write-method is called once for each row, and writes the data for each matrix in the file.
+  private
+    Procedure WriteUsingGetter(NMatrices,RowSize: Integer; const Getter: TMatrixGetter);
   strict protected
     Constructor Create(const FileName: String; const Count,Size: Integer; const CreateStream: Boolean = true); overload;
   protected
@@ -73,19 +75,24 @@ begin
   SetSize(Size);
 end;
 
-Procedure TMatrixWriter.Write(const Row: TVirtualMatrixRow);
+Procedure TMatrixWriter.WriteUsingGetter(NMatrices,RowSize: Integer; const Getter: TMatrixGetter);
 begin
-  var Ref := Row;
-  var GetterRows := TGetterMatrixRows.Create(1,Size,
-    function(Matrix,Column: Integer): Float64
-    begin
-      Result := Ref[Column]
-    end);
+  var GetterRows := TGetterMatrixRows.Create(NMatrices,RowSize,Getter);
   try
     Write(GetterRows);
   finally
     GetterRows.Free;
   end;
+end;
+
+Procedure TMatrixWriter.Write(const Row: TVirtualMatrixRow);
+begin
+  var Ref := Row;
+  WriteUsingGetter(1,Size,
+    function(Matrix,Column: Integer): Float64
+    begin
+      Result := Ref[Column]
+    end);
 end;
 
 Procedure TMatrixWriter.Write(const Rows: TVirtualMatrixRows);
@@ -102,23 +109,18 @@ begin
         end;
       except
         on E: Exception do
-          raise Exception.Create('Error (' + E.Message + ') writing row ' +
-                                 (CurrentRow+1).ToString + ' in ' + FileName);
+          raise Exception.Create('Error (' + E.Message + ') writing row ' + (CurrentRow+1).ToString + ' in ' + FileName);
       end;
       Inc(CurrentRow);
     end else
       raise Exception.Create('Writing too many rows to matrix file')
-  else raise Exception.Create('Rows unassigned');
+  else
+    raise Exception.Create('Rows unassigned');
 end;
 
 Procedure TMatrixWriter.Write(const Rows: TMatrixGetter);
 begin
-  var GetterRows := TGetterMatrixRows.Create(Count,Size,Rows);
-  try
-    Write(GetterRows);
-  finally
-    GetterRows.Free;
-  end;
+  WriteUsingGetter(Count,Size,Rows);
 end;
 
 Procedure TMatrixWriter.Write(const Row: TMatrixRowGetter);
@@ -139,56 +141,31 @@ begin
   for var Matrix := low(Refs) to high(Refs) do
   if Refs[Matrix].Size <> RowSize then
   raise Exception.Create('Matrix rows must have the same size');
-  var GetterRows := TGetterMatrixRows.Create(Length(Refs),RowSize,
+  WriteUsingGetter(Length(Refs),RowSize,
     function(Matrix,Column: Integer): Float64
     begin
       Result := Refs[Matrix][Column]
     end);
-  try
-    Write(GetterRows);
-  finally
-    GetterRows.Free;
-  end;
 end;
 
 Procedure TMatrixWriter.Write(const Rows: array of TFloat32MatrixRow);
 begin
   var Refs: TArray<TFloat32MatrixRow> := TArrayBuilder<TFloat32MatrixRow>.Create(Rows);
-  var RowSize := 0;
-  if Length(Refs) > 0 then RowSize := Length(Refs[0]);
-  for var Matrix := low(Refs) to high(Refs) do
-  if Length(Refs[Matrix]) <> RowSize then
-  raise Exception.Create('Matrix rows must have the same size');
-  var GetterRows := TGetterMatrixRows.Create(Length(Refs),RowSize,
+  WriteUsingGetter(Length(Refs),CheckedRowSize<Float32>(Refs),
     function(Matrix,Column: Integer): Float64
     begin
       Result := Refs[Matrix][Column]
     end);
-  try
-    Write(GetterRows);
-  finally
-    GetterRows.Free;
-  end;
 end;
 
 Procedure TMatrixWriter.Write(const Rows: array of TFloat64MatrixRow);
 begin
   var Refs: TArray<TFloat64MatrixRow> := TArrayBuilder<TFloat64MatrixRow>.Create(Rows);
-  var RowSize := 0;
-  if Length(Refs) > 0 then RowSize := Length(Refs[0]);
-  for var Matrix := low(Refs) to high(Refs) do
-  if Length(Refs[Matrix]) <> RowSize then
-  raise Exception.Create('Matrix rows must have the same size');
-  var GetterRows := TGetterMatrixRows.Create(Length(Refs),RowSize,
+  WriteUsingGetter(Length(Refs),CheckedRowSize<Float64>(Refs),
     function(Matrix,Column: Integer): Float64
     begin
       Result := Refs[Matrix][Column]
     end);
-  try
-    Write(GetterRows);
-  finally
-    GetterRows.Free;
-  end;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
