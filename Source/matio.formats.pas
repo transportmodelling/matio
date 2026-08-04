@@ -17,9 +17,12 @@ Uses
 Type
   TMatrixFormat = Class
   strict protected
-    Procedure AppendFormatProperties(var Config: TKeyValuePairs); virtual;
-  strict protected
+    Class Function OptionIndex(const PropertyValue: String; const Options: array of String;
+                               const PropertyName: String; const MinIndex: Integer = 0): Integer;
+    Class Function BoolPropertyValue(const PropertyValue,PropertyName: String): Boolean;
     Function ExtendProperties(const [ref] Config: TKeyValuePairs): TKeyValuePairs;
+  strict protected
+    Procedure AppendFormatProperties(var Config: TKeyValuePairs); virtual;
   public
     Const
       FileProperty = 'file';
@@ -113,6 +116,23 @@ implementation
 Uses
   matio.formats.text, matio.formats.gen4, matio.formats.minutp, matio.formats.visum,
   matio.formats.omx, matio.formats.cube;
+
+Class Function TMatrixFormat.OptionIndex(const PropertyValue: String; const Options: array of String;
+                                         const PropertyName: String; const MinIndex: Integer = 0): Integer;
+// Returns the index of the option matching the property value, raising when
+// there is no match or the option is not allowed for the property
+begin
+  for var Option := MinIndex to high(Options) do
+  if SameText(Options[Option],PropertyValue) then Exit(Option);
+  raise Exception.Create('Invalid ' + PropertyName);
+end;
+
+Class Function TMatrixFormat.BoolPropertyValue(const PropertyValue,PropertyName: String): Boolean;
+begin
+  Result := OptionIndex(PropertyValue,
+                        [False.ToString(TUseBoolStrs.True),True.ToString(TUseBoolStrs.True)],
+                        PropertyName) = 1;
+end;
 
 Class Function TMatrixFormat.FileName(const [ref] Config: TKeyValuePairs; Expand: Boolean = true): String;
 begin

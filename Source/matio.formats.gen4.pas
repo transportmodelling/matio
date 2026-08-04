@@ -107,36 +107,12 @@ Function T4GMatrixWriterFormat.CreateWriter(const [ref] Config: TKeyValuePairs;
                                             const FileLabel: string;
                                             const MatrixLabels: array of String;
                                             const Size: Integer): TMatrixWriter;
-Var
-  Precision: TFloatType;
-  Compression: T4GCompression;
 begin
   if SameText(Config.Str(FormatProperty),Format) then
   begin
     var ExtendedConfig := ExtendProperties(Config);
-    // Set precision
-    var ValidPrecision := false;
-    var PrecisionPropertyValue := ExtendedConfig.Str(PrecisionProperty);
-    for var Prec := low(PrecisionLabels) to high(PrecisionLabels) do
-    if SameText(PrecisionLabels[Prec],PrecisionPropertyValue) then
-    begin
-      Precision := Prec;
-      ValidPrecision := true;
-      Break;
-    end;
-    if not ValidPrecision then raise Exception.Create('Invalid precision');
-    // Set compression
-    var ValidCompression := false;
-    var CompressionProprtyValue := ExtendedConfig.Str(CompressionProperty);
-    for var Compress := low(CompressionOptions) to high(CompressionOptions) do
-    if SameText(CompressionOptions[Compress],CompressionProprtyValue) then
-    begin
-      Compression := Compress;
-      ValidCompression := true;
-      Break;
-    end;
-    if not ValidCompression then raise Exception.Create('Invalid compression');
-    // Create writer
+    var Precision := TFloatType(OptionIndex(ExtendedConfig.Str(PrecisionProperty),PrecisionLabels,'precision'));
+    var Compression := T4GCompression(OptionIndex(ExtendedConfig.Str(CompressionProperty),CompressionOptions,'compression'));
     Result := T4GMatrixWriter.Create(ExtendedConfig.Path(FileProperty),FileLabel,MatrixLabels,Size,Precision,Compression);
   end else
     raise Exception.Create('Invalid format-property');
