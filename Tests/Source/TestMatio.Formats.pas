@@ -49,6 +49,20 @@ type
     procedure WriterFormatByName_Gen4_NonNil;
     [Test]
     procedure WriterFormatByName_Visum_Nil;
+    // Full format name
+    [Test]
+    procedure ReaderFormat_Mtp_FormatName;
+    [Test]
+    procedure WriterFormat_Mtp_FormatName;
+    // Property labels
+    [Test]
+    procedure PropertyLabel_Mtp_Precision;
+    [Test]
+    procedure PropertyLabel_File;
+    [Test]
+    procedure PropertyLabel_UnknownIsEmpty;
+    [Test]
+    procedure PropertyLabel_AllFormatPropertiesLabelled;
     // Look up by file (extension / header bytes)
     [Test]
     procedure ReaderFormatByFile_4g_DetectsHeader;
@@ -251,6 +265,55 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
+// Full format name
+////////////////////////////////////////////////////////////////////////////////
+
+procedure TMatrixFormatsTests.ReaderFormat_Mtp_FormatName;
+begin
+  Assert.AreEqual('Minutp', MatrixFormats.ReaderFormat('mtp').FormatName);
+end;
+
+procedure TMatrixFormatsTests.WriterFormat_Mtp_FormatName;
+begin
+  Assert.AreEqual('Minutp', MatrixFormats.WriterFormat('mtp').FormatName);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Property labels
+////////////////////////////////////////////////////////////////////////////////
+
+procedure TMatrixFormatsTests.PropertyLabel_Mtp_Precision;
+begin
+  Assert.AreEqual('Precision', MatrixFormats.ReaderFormat('mtp').PropertyLabel('prec'));
+end;
+
+procedure TMatrixFormatsTests.PropertyLabel_File;
+begin
+  Assert.AreEqual('File', MatrixFormats.WriterFormat('4g').PropertyLabel('file'));
+end;
+
+procedure TMatrixFormatsTests.PropertyLabel_UnknownIsEmpty;
+begin
+  Assert.AreEqual('', MatrixFormats.ReaderFormat('txt').PropertyLabel('xyz'));
+end;
+
+procedure TMatrixFormatsTests.PropertyLabel_AllFormatPropertiesLabelled;
+// Every property a registered format exposes must have a label
+  procedure CheckFormat(const Fmt: TMatrixFormat);
+  begin
+    var Props := Fmt.FormatProperties;
+    for var Prop := 0 to Props.Count-1 do
+      Assert.AreNotEqual('', Fmt.PropertyLabel(Props[Prop].Key),
+        Fmt.Format + ': no label for property ''' + Props[Prop].Key + '''');
+  end;
+begin
+  for var Format in MatrixFormats.RegisteredReaderFormats do
+    CheckFormat(MatrixFormats.ReaderFormat(Format));
+  for var Format in MatrixFormats.RegisteredWriterFormats do
+    CheckFormat(MatrixFormats.WriterFormat(Format));
+end;
+
+////////////////////////////////////////////////////////////////////////////////
 // Look up by file
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -426,9 +489,9 @@ begin
     Assert.Pass('hdf5.dll not found in Tests\Data\ — skipping OMX availability test');
     Exit;
   end;
-  // Free any DLL already loaded (e.g. from Tests\Source\) and load the
-  // one from Tests\Data\ so the test is self-contained.
-  Hdf5Dll.Free;
+  // Load the DLL from Tests\Data\ so the test is self-contained. Any DLL
+  // already loaded (e.g. from Tests\Source\) is kept alive in FSavedDll;
+  // TearDown frees this instance and restores the original.
   Hdf5Dll := THdf5Dll.Create(FDllPath);
   Assert.IsTrue(MatrixFormats.ReaderFormat('omx').Available,
     'OMX format should report available after loading hdf5.dll from Tests\Data\');

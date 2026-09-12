@@ -18,6 +18,7 @@ Type
   TVisumMatrixReaderFormat = Class(TMatrixReaderFormat)
   public
     Function Format: String; override;
+    Function FormatName: String; override;
     Function HasFormat(const Header: TBytes): Boolean; override;
     Function CreateReader(const [ref] Config: TKeyValuePairs): TMatrixReader; override;
   end;
@@ -29,6 +30,11 @@ implementation
 Function TVisumMatrixReaderFormat.Format: String;
 begin
   Result := 'visum';
+end;
+
+Function TVisumMatrixReaderFormat.FormatName: String;
+begin
+  Result := 'Visum';
 end;
 
 Function TVisumMatrixReaderFormat.HasFormat(const Header: TBytes): Boolean;

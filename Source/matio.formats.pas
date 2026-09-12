@@ -30,9 +30,11 @@ Type
     Class Function FileName(const [ref] Config: TKeyValuePairs; Expand: Boolean = true): String;
   public
     Function Format: String; virtual; abstract;
+    Function FormatName: String; virtual; abstract;
     Function Available: Boolean; virtual;
     Function FormatProperties: TKeyValuePairs;
-    Function PropertyPickList(const PropertyName: string; out PickList: TStringDynArray): Boolean; virtual;
+    Function PropertyLabel(const PropertyKey: string): String; virtual;
+    Function PropertyPickList(const PropertyKey: string; out PickList: TStringDynArray): Boolean; virtual;
     Function TidyProperties(const [ref] Config: TKeyValuePairs): TKeyValuePairs;
   end;
 
@@ -173,9 +175,21 @@ begin
   AppendFormatProperties(Result);
 end;
 
-Function TMatrixFormat.PropertyPickList(const PropertyName: string; out PickList: TStringDynArray): Boolean;
+Function TMatrixFormat.PropertyLabel(const PropertyKey: string): String;
+// Returns the display label of a format property, or an empty string
+// when the property is unknown to the format
 begin
-  if PropertyName = FormatProperty then
+  if SameText(PropertyKey,FileProperty) then
+    Result := 'File'
+  else if SameText(PropertyKey,FormatProperty) then
+    Result := 'Format'
+  else
+    Result := '';
+end;
+
+Function TMatrixFormat.PropertyPickList(const PropertyKey: string; out PickList: TStringDynArray): Boolean;
+begin
+  if PropertyKey = FormatProperty then
   begin
     Result := true;
     PickList := [Format];

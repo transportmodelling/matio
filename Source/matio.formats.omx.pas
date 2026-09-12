@@ -19,6 +19,7 @@ Type
   TOMXMatrixReaderFormat = Class(THdf5MatrixReaderFormat)
   public
     Function Format: String; override;
+    Function FormatName: String; override;
     Function HasFormat(const FileExtension: String): Boolean; override;
     Function CreateReader(const [ref] Config: TKeyValuePairs): TMatrixReader; override;
     Function CreateReader(const [ref] Config: TKeyValuePairs; const Selection: array of String): TMatrixReader; override;
@@ -27,6 +28,7 @@ Type
   TOMXMatrixWriterFormat = Class(THdf5MatrixWriterFormat)
   public
     Function Format: String; override;
+    Function FormatName: String; override;
     Function CreateWriter(const [ref] Config: TKeyValuePairs;
                           const FileLabel: string;
                           const MatrixLabels: array of String;
@@ -40,6 +42,11 @@ implementation
 Function TOMXMatrixReaderFormat.Format: String;
 begin
   Result := 'omx';
+end;
+
+Function TOMXMatrixReaderFormat.FormatName: String;
+begin
+  Result := 'Open Matrix Format';
 end;
 
 Function TOMXMatrixReaderFormat.HasFormat(const FileExtension: String): Boolean;
@@ -68,6 +75,11 @@ end;
 Function TOMXMatrixWriterFormat.Format: String;
 begin
   Result := 'omx';
+end;
+
+Function TOMXMatrixWriterFormat.FormatName: String;
+begin
+  Result := 'Open Matrix Format';
 end;
 
 Function TOMXMatrixWriterFormat.CreateWriter(const [ref] Config: TKeyValuePairs;

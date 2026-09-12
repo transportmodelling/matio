@@ -19,6 +19,7 @@ Type
   T4GMatrixReaderFormat = Class(TMatrixReaderFormat)
   public
     Function Format: String; override;
+    Function FormatName: String; override;
     Function HasFormat(const Header: TBytes): Boolean; override;
   public
     Function CreateReader(const [ref] Config: TKeyValuePairs): TMatrixReader; override;
@@ -34,7 +35,9 @@ Type
     Procedure AppendFormatProperties(var Config: TKeyValuePairs); override;
   public
     Function Format: String; override;
-    Function PropertyPickList(const PropertyName: string; out PickList: TStringDynArray): Boolean; override;
+    Function FormatName: String; override;
+    Function PropertyLabel(const PropertyKey: string): String; override;
+    Function PropertyPickList(const PropertyKey: string; out PickList: TStringDynArray): Boolean; override;
   public
     Function CreateWriter(const [ref] Config: TKeyValuePairs;
                           const FileLabel: string;
@@ -49,6 +52,11 @@ implementation
 Function T4GMatrixReaderFormat.Format: String;
 begin
   Result := '4g';
+end;
+
+Function T4GMatrixReaderFormat.FormatName: String;
+begin
+  Result := '4G';
 end;
 
 Function T4GMatrixReaderFormat.HasFormat(const Header: TBytes): Boolean;
@@ -80,22 +88,37 @@ begin
   Result := '4g';
 end;
 
+Function T4GMatrixWriterFormat.FormatName: String;
+begin
+  Result := '4G';
+end;
+
 Procedure T4GMatrixWriterFormat.AppendFormatProperties(var Config: TKeyValuePairs);
 begin
   Config.Append(PrecisionProperty,PrecisionLabels[ftFloat32]);
   Config.Append(CompressionProperty,CompressionOptions[cpGZip]);
 end;
 
-Function T4GMatrixWriterFormat.PropertyPickList(const PropertyName: string;
+Function T4GMatrixWriterFormat.PropertyLabel(const PropertyKey: string): String;
+begin
+  Result := inherited PropertyLabel(PropertyKey);
+  if Result = '' then
+  if SameText(PropertyKey,PrecisionProperty) then
+    Result := 'Precision'
+  else if SameText(PropertyKey,CompressionProperty) then
+    Result := 'Compression';
+end;
+
+Function T4GMatrixWriterFormat.PropertyPickList(const PropertyKey: string;
                                                 out PickList: TStringDynArray): Boolean;
 begin
-  if not inherited PropertyPickList(PropertyName,PickList) then
-  if SameText(PropertyName,PrecisionProperty) then
+  if not inherited PropertyPickList(PropertyKey,PickList) then
+  if SameText(PropertyKey,PrecisionProperty) then
   begin
     Result := true;
     PickList := TStringArrayBuilder.Create(PrecisionLabels);
   end else
-  if SameText(PropertyName,CompressionProperty) then
+  if SameText(PropertyKey,CompressionProperty) then
   begin
     Result := true;
     PickList := TStringArrayBuilder.Create(CompressionOptions);

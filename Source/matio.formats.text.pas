@@ -23,7 +23,9 @@ Type
     Procedure AppendFormatProperties(var Config: TKeyValuePairs); override;
   public
     Function Format: String; override;
-    Function PropertyPickList(const PropertyName: string; out PickList: TStringDynArray): Boolean; override;
+    Function FormatName: String; override;
+    Function PropertyLabel(const PropertyKey: string): String; override;
+    Function PropertyPickList(const PropertyKey: string; out PickList: TStringDynArray): Boolean; override;
   public
     Function CreateReader(const [ref] Config: TKeyValuePairs): TMatrixReader; override;
   end;
@@ -33,7 +35,9 @@ Type
     Procedure AppendFormatProperties(var Config: TKeyValuePairs); override;
   public
     Function Format: String; override;
-    Function PropertyPickList(const PropertyName: string; out PickList: TStringDynArray): Boolean; override;
+    Function FormatName: String; override;
+    Function PropertyLabel(const PropertyKey: string): String; override;
+    Function PropertyPickList(const PropertyKey: string; out PickList: TStringDynArray): Boolean; override;
   public
     Function CreateWriter(const [ref] Config: TKeyValuePairs;
                           const FileLabel: string;
@@ -57,21 +61,43 @@ Const
   DelimiterOptions: array[TDelimiter] of String = ('comma','tab','semicolon','space');
   BOMProperty = 'bom';
 
-Function TextPropertyPickList(const PropertyName: string; const IncludeBOM: Boolean;
+Function TextPropertyPickList(const PropertyKey: string; const IncludeBOM: Boolean;
                               out PickList: TStringDynArray): Boolean;
 // The pick lists for the properties the reader and writer formats share
 begin
   Result := true;
-  if SameText(PropertyName,DelimiterProperty) then
+  if SameText(PropertyKey,DelimiterProperty) then
     PickList := TStringArrayBuilder.Create(DelimiterOptions)
-  else if SameText(PropertyName,HeaderProperty) or (IncludeBOM and SameText(PropertyName,BOMProperty)) then
+  else if SameText(PropertyKey,HeaderProperty) or (IncludeBOM and SameText(PropertyKey,BOMProperty)) then
     PickList := TStringArrayBuilder.Create([LowerCase(False.ToString(TUseBoolStrs.True)),LowerCase(True.ToString(TUseBoolStrs.True))])
-  else if SameText(PropertyName,DecimalSeparatorProperty) then
+  else if SameText(PropertyKey,DecimalSeparatorProperty) then
     PickList := TStringArrayBuilder.Create(SeparatorOptions,1,Length(SeparatorOptions)-1)
-  else if SameText(PropertyName,ThousandSeparatorProperty) then
+  else if SameText(PropertyKey,ThousandSeparatorProperty) then
     PickList := TStringArrayBuilder.Create(SeparatorOptions)
   else
     Result := false;
+end;
+
+Function TextPropertyLabel(const PropertyKey: string; const IncludeWriterProperties: Boolean): String;
+// The labels for the properties the reader and writer formats share,
+// optionally extended with the writer-only properties
+begin
+  if SameText(PropertyKey,EncodingProperty) then
+    Result := 'Encoding'
+  else if SameText(PropertyKey,DelimiterProperty) then
+    Result := 'Delimiter'
+  else if SameText(PropertyKey,HeaderProperty) then
+    Result := 'Header'
+  else if SameText(PropertyKey,DecimalSeparatorProperty) then
+    Result := 'Decimal separator'
+  else if SameText(PropertyKey,ThousandSeparatorProperty) then
+    Result := 'Thousand separator'
+  else if IncludeWriterProperties and SameText(PropertyKey,DecimalsProperty) then
+    Result := 'Decimals'
+  else if IncludeWriterProperties and SameText(PropertyKey,BOMProperty) then
+    Result := 'Byte order mark'
+  else
+    Result := '';
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -79,6 +105,11 @@ end;
 Function TTextMatrixReaderFormat.Format: String;
 begin
   Result := 'txt';
+end;
+
+Function TTextMatrixReaderFormat.FormatName: String;
+begin
+  Result := 'Text';
 end;
 
 Procedure TTextMatrixReaderFormat.AppendFormatProperties(var Config: TKeyValuePairs);
@@ -90,11 +121,17 @@ begin
   Config.Append(ThousandSeparatorProperty,SeparatorOptions[0]);
 end;
 
-Function TTextMatrixReaderFormat.PropertyPickList(const PropertyName: string;
+Function TTextMatrixReaderFormat.PropertyLabel(const PropertyKey: string): String;
+begin
+  Result := inherited PropertyLabel(PropertyKey);
+  if Result = '' then Result := TextPropertyLabel(PropertyKey,false);
+end;
+
+Function TTextMatrixReaderFormat.PropertyPickList(const PropertyKey: string;
                                                         out PickList: TStringDynArray): Boolean;
 begin
-  Result := inherited PropertyPickList(PropertyName,PickList) or
-            TextPropertyPickList(PropertyName,false,PickList);
+  Result := inherited PropertyPickList(PropertyKey,PickList) or
+            TextPropertyPickList(PropertyKey,false,PickList);
 end;
 
 Function TTextMatrixReaderFormat.CreateReader(const [ref] Config: TKeyValuePairs): TMatrixReader;
@@ -121,6 +158,11 @@ begin
   Result := 'txt';
 end;
 
+Function TTextMatrixWriterFormat.FormatName: String;
+begin
+  Result := 'Text';
+end;
+
 Procedure TTextMatrixWriterFormat.AppendFormatProperties(var Config: TKeyValuePairs);
 begin
   Config.Append(EncodingProperty,'ascii');
@@ -132,11 +174,17 @@ begin
   Config.Append(BOMProperty,false.ToString(TUseBoolStrs.True));
 end;
 
-Function TTextMatrixWriterFormat.PropertyPickList(const PropertyName: string;
+Function TTextMatrixWriterFormat.PropertyLabel(const PropertyKey: string): String;
+begin
+  Result := inherited PropertyLabel(PropertyKey);
+  if Result = '' then Result := TextPropertyLabel(PropertyKey,true);
+end;
+
+Function TTextMatrixWriterFormat.PropertyPickList(const PropertyKey: string;
                                                   out PickList: TStringDynArray): Boolean;
 begin
-  Result := inherited PropertyPickList(PropertyName,PickList) or
-            TextPropertyPickList(PropertyName,true,PickList);
+  Result := inherited PropertyPickList(PropertyKey,PickList) or
+            TextPropertyPickList(PropertyKey,true,PickList);
 end;
 
 Function TTextMatrixWriterFormat.CreateWriter(const [ref] Config: TKeyValuePairs;

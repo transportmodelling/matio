@@ -19,6 +19,7 @@ Type
   TCubeMatrixReaderFormat = Class(THdf5MatrixReaderFormat)
   public
     Function Format: String; override;
+    Function FormatName: String; override;
     Function HasFormat(const FileExtension: String): Boolean; override;
     Function CreateReader(const [ref] Config: TKeyValuePairs): TMatrixReader; override;
     Function CreateReader(const [ref] Config: TKeyValuePairs; const Selection: array of String): TMatrixReader; override;
@@ -27,6 +28,7 @@ Type
   TCubeMatrixWriterFormat = Class(THdf5MatrixWriterFormat)
   public
     Function Format: String; override;
+    Function FormatName: String; override;
     Function CreateWriter(const [ref] Config: TKeyValuePairs;
                           const FileLabel: string;
                           const MatrixLabels: array of String;
@@ -40,6 +42,11 @@ implementation
 Function TCubeMatrixReaderFormat.Format: String;
 begin
   Result := 'cube';
+end;
+
+Function TCubeMatrixReaderFormat.FormatName: String;
+begin
+  Result := 'Cube';
 end;
 
 Function TCubeMatrixReaderFormat.HasFormat(const FileExtension: String): Boolean;
@@ -68,6 +75,11 @@ end;
 Function TCubeMatrixWriterFormat.Format: String;
 begin
   Result := 'cube';
+end;
+
+Function TCubeMatrixWriterFormat.FormatName: String;
+begin
+  Result := 'Cube';
 end;
 
 Function TCubeMatrixWriterFormat.CreateWriter(const [ref] Config: TKeyValuePairs;

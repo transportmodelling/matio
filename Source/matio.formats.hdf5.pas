@@ -27,7 +27,8 @@ Type
     Procedure AppendFormatProperties(var Config: TKeyValuePairs); override;
   public
     Function Available: Boolean; override;
-    Function PropertyPickList(const PropertyName: string; out PickList: TStringDynArray): Boolean; override;
+    Function PropertyLabel(const PropertyKey: string): String; override;
+    Function PropertyPickList(const PropertyKey: string; out PickList: TStringDynArray): Boolean; override;
   end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -51,10 +52,16 @@ begin
   Result := THdf5MatrixReader.Available;
 end;
 
-Function THdf5MatrixWriterFormat.PropertyPickList(const PropertyName: string; out PickList: TStringDynArray): Boolean;
+Function THdf5MatrixWriterFormat.PropertyLabel(const PropertyKey: string): String;
 begin
-  if not inherited PropertyPickList(PropertyName,PickList) then
-  if SameText(PropertyName,PrecisionProperty) then
+  Result := inherited PropertyLabel(PropertyKey);
+  if (Result = '') and SameText(PropertyKey,PrecisionProperty) then Result := 'Precision';
+end;
+
+Function THdf5MatrixWriterFormat.PropertyPickList(const PropertyKey: string; out PickList: TStringDynArray): Boolean;
+begin
+  if not inherited PropertyPickList(PropertyKey,PickList) then
+  if SameText(PropertyKey,PrecisionProperty) then
   begin
     Result := true;
     PickList := [PrecisionLabels[ftFloat32],PrecisionLabels[ftFloat64]];

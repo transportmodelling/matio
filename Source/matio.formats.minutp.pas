@@ -20,6 +20,8 @@ Type
     Procedure AppendFormatProperties(var Config: TKeyValuePairs); override;
   public
     Function Format: String; override;
+    Function FormatName: String; override;
+    Function PropertyLabel(const PropertyKey: string): String; override;
     Function HasFormat(const Header: TBytes): Boolean; override;
     Function CreateReader(const [ref] Config: TKeyValuePairs): TMatrixReader; override;
   end;
@@ -29,6 +31,8 @@ Type
     Procedure AppendFormatProperties(var Config: TKeyValuePairs); override;
   public
     Function Format: String; override;
+    Function FormatName: String; override;
+    Function PropertyLabel(const PropertyKey: string): String; override;
     Function CreateWriter(const [ref] Config: TKeyValuePairs;
                           const FileLabel: string;
                           const MatrixLabels: array of String;
@@ -41,10 +45,22 @@ implementation
 
 Const
   PrecisionProperty = 'prec';
+  PrecisionLabel = 'Precision';
 
 Function TMinutpMatrixReaderFormat.Format: String;
 begin
   Result := 'mtp';
+end;
+
+Function TMinutpMatrixReaderFormat.FormatName: String;
+begin
+  Result := 'Minutp';
+end;
+
+Function TMinutpMatrixReaderFormat.PropertyLabel(const PropertyKey: string): String;
+begin
+  Result := inherited PropertyLabel(PropertyKey);
+  if (Result = '') and SameText(PropertyKey,PrecisionProperty) then Result := PrecisionLabel;
 end;
 
 Function TMinutpMatrixReaderFormat.HasFormat(const Header: TBytes): Boolean;
@@ -82,6 +98,17 @@ end;
 Function TMinutpMatrixWriterFormat.Format: String;
 begin
   Result := 'mtp';
+end;
+
+Function TMinutpMatrixWriterFormat.FormatName: String;
+begin
+  Result := 'Minutp';
+end;
+
+Function TMinutpMatrixWriterFormat.PropertyLabel(const PropertyKey: string): String;
+begin
+  Result := inherited PropertyLabel(PropertyKey);
+  if (Result = '') and SameText(PropertyKey,PrecisionProperty) then Result := PrecisionLabel;
 end;
 
 Procedure TMinutpMatrixWriterFormat.AppendFormatProperties(var Config: TKeyValuePairs);
