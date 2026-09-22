@@ -21,6 +21,7 @@ Type
     DecompressionStream: TStream;
     BinaryReader: TBinaryReader;
     Function ReadFloat16: Float32;
+    Procedure VerifyEndOfData;
   protected
     Procedure Read(const CurrentRow: Integer; const Rows: TCustomMatrixRows); override;
   public
@@ -82,9 +83,23 @@ begin
   Result := FloatValue;
 end;
 
+Procedure T4GMatrixReader.VerifyEndOfData;
+// The rows are followed by a checksum over the uncompressed data. Reading past the
+// last row hands that checksum to the decompressor, which raises when it disagrees
+// with the data that was read, and yields a byte when the file holds more data than
+// its header declares.
+Var
+  Trailing: Byte;
+begin
+  if DecompressionStream <> FileStream then
+  if DecompressionStream.Read(Trailing,1) > 0 then
+  raise Exception.Create('data beyond the last row');
+end;
+
 Procedure T4GMatrixReader.Read(const CurrentRow: Integer; const Rows: TCustomMatrixRows);
 begin
   if CurrentRow < Size then
+  begin
     case FilePrecision of
       ftFloat16: for var Mtrx := 0 to Count-1 do
                  for var Col := 0 to Size-1 do
@@ -95,8 +110,9 @@ begin
       ftFloat64: for var Mtrx := 0 to Count-1 do
                  for var Col := 0 to Size-1 do
                  Rows[Mtrx,Col] := BinaryReader.ReadDouble;
-    end
-  else
+    end;
+    if CurrentRow = Size-1 then VerifyEndOfData;
+  end else
     for var Mtrx := 0 to Count-1 do
     for var Col := 0 to Rows.Size-1 do
     Rows[Mtrx,Col] := 0.0;
