@@ -14,7 +14,7 @@ interface
 ////////////////////////////////////////////////////////////////////////////////
 
 Uses
-  matio, matio.row, matio.reader, matio.formats, ArrVal, KeyVal;
+  SysUtils, matio, matio.row, matio.reader, matio.formats, matio.io, ArrVal, KeyVal;
 
 Type
   TCustomMatrices = Class
@@ -74,6 +74,62 @@ Type
   public
     Constructor Create(Count,Size: Integer);
     Function RowValues(Matrix,Row: Integer): TFloat64ArrayValues;
+    Destructor Destroy; override;
+  end;
+
+  TMemoryMatrixReader = Class
+  // Keeps a reference to in-memory matrices and the index of the current row.
+  // Each call to Read returns the index of the next row to process. Like the
+  // file readers, the reader is not thread safe: when it is shared between
+  // threads, the caller must synchronize the calls to Read.
+  // The matrices are not owned by the reader.
+  private
+    FMatrices: TCustomMatrices;
+    FCurrentRow: Integer;
+  public
+    Constructor Create(const Matrices: TCustomMatrices);
+    // Returns the index of the next row and advances; the result is equal to
+    // or greater than the size of the matrices past the last row
+    Function Read: Integer;
+  public
+    Property Matrices: TCustomMatrices read FMatrices;
+    Property CurrentRow: Integer read FCurrentRow;
+  end;
+
+  TCustomMemoryMatrixRowsReader = Class(TCustomMatrixRowsReader)
+  // Rows object over a TMemoryMatrixReader: each call to Read obtains the next
+  // row index from the reader and points the object at that row of the
+  // matrices, so no values are copied and later changes to the matrices remain
+  // visible. Reading past the last row yields zeroes; Row is then equal to or
+  // greater than Size.
+  private
+    Reader: TMemoryMatrixReader;
+    FRow: Integer;
+    Rows: TCustomMatrixRows; // Current row of the matrices; nil past the last row
+  strict protected
+    Procedure SetReader(const MemoryReader: TMemoryMatrixReader);
+    Function GetValues(Matrix,Column: Integer): Float64; override;
+    Function GetFileLabel: String; override;
+    Function GetMatrixLabels(Matrix: Integer): String; override;
+  public
+    Procedure Read; override;
+  public
+    Property Row: Integer read FRow; // Index of the row obtained by the last Read
+  end;
+
+  TMemoryMatrixReaderRows = Class(TCustomMemoryMatrixRowsReader)
+  // Obtains a reader reference in its constructor.
+  // Suitable for multi threaded applications, where different instances
+  // reference the same reader and each thread handles the rows it obtains.
+  public
+    Constructor Create(const MemoryReader: TMemoryMatrixReader);
+  end;
+
+  TMemoryMatrixRowsReader = Class(TCustomMemoryMatrixRowsReader)
+  // Creates and owns its own reader over the given matrices.
+  // Suitable for applications that process all rows on the same thread.
+  public
+    Constructor Create(const Matrices: TCustomMatrices);
     Destructor Destroy; override;
   end;
 
@@ -247,6 +303,81 @@ end;
 Destructor TFloat64Matrices.Destroy;
 begin
   for var Row := low(FRows) to high(FRows) do FRows[Row].Free;
+  inherited Destroy;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+
+Constructor TMemoryMatrixReader.Create(const Matrices: TCustomMatrices);
+begin
+  inherited Create;
+  if Matrices <> nil then
+    FMatrices := Matrices
+  else
+    raise Exception.Create('Matrices unassigned');
+end;
+
+Function TMemoryMatrixReader.Read: Integer;
+begin
+  Result := FCurrentRow;
+  Inc(FCurrentRow);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+
+Procedure TCustomMemoryMatrixRowsReader.SetReader(const MemoryReader: TMemoryMatrixReader);
+begin
+  if MemoryReader <> nil then
+  begin
+    Reader := MemoryReader;
+    Init(Reader.Matrices.Count,Reader.Matrices.Size);
+  end else
+    raise Exception.Create('Reader unassigned');
+end;
+
+Function TCustomMemoryMatrixRowsReader.GetValues(Matrix,Column: Integer): Float64;
+begin
+  if Rows <> nil then Result := Rows[Matrix,Column] else Result := 0.0;
+end;
+
+Function TCustomMemoryMatrixRowsReader.GetFileLabel: String;
+begin
+  Result := Reader.Matrices.FileLabel;
+end;
+
+Function TCustomMemoryMatrixRowsReader.GetMatrixLabels(Matrix: Integer): String;
+begin
+  Result := Reader.Matrices.MatrixLabels[Matrix];
+end;
+
+Procedure TCustomMemoryMatrixRowsReader.Read;
+begin
+  FRow := Reader.Read;
+  if FRow < Reader.Matrices.Size then
+    Rows := Reader.Matrices.GetRows(FRow)
+  else
+    Rows := nil;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+
+Constructor TMemoryMatrixReaderRows.Create(const MemoryReader: TMemoryMatrixReader);
+begin
+  inherited Create;
+  SetReader(MemoryReader);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+
+Constructor TMemoryMatrixRowsReader.Create(const Matrices: TCustomMatrices);
+begin
+  inherited Create;
+  SetReader(TMemoryMatrixReader.Create(Matrices));
+end;
+
+Destructor TMemoryMatrixRowsReader.Destroy;
+begin
+  Reader.Free;
   inherited Destroy;
 end;
 
