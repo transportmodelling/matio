@@ -114,6 +114,8 @@ begin
   else
     StreamWriter := TStreamWriter.Create(FileStream,TEncoding.ASCII,BufferSize);
   if not Settings.WriteByteOrderMark then FileStream.Size := 0;
+  // The preamble has reached the stream, so the writer can buffer from here on
+  StreamWriter.AutoFlush := false;
   // Set format settings
   TextFormatSettings.DecimalSeparator := Settings.FormatSettings.DecimalSeparator;
   TextFormatSettings.ThousandSeparator := Settings.FormatSettings.ThousandSeparator;
@@ -150,13 +152,7 @@ begin
         Line := Line + Delim + FormatFloat(FloatFormat,Rows[Matrix,Column],TextFormatSettings);
       end else Line := Line + Delim + '0';
     end;
-    if not Empty then
-    begin
-      StreamWriter.Write(CurrentRow+1);
-      StreamWriter.Write(Delim);
-      StreamWriter.Write(Column+1);
-      StreamWriter.WriteLine(Line);
-    end;
+    if not Empty then StreamWriter.WriteLine(IntToStr(CurrentRow+1)+Delim+IntToStr(Column+1)+Line);
   end;
 end;
 
