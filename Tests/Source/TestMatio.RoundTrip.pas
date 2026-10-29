@@ -56,6 +56,7 @@ type
   public
     [TearDown]
     procedure TearDown;
+    [Test] Procedure Gen4_Float16_ValuesPreserved;
     [Test] procedure Gen4_Float32_ValuesPreserved;
     [Test] procedure Gen4_Float64_ValuesPreserved;
     [Test] procedure Gen4_NoCompression_ValuesPreserved;
@@ -518,6 +519,35 @@ begin
   if (FTempFile <> '') and TFile.Exists(FTempFile) then
     TFile.Delete(FTempFile);
   FTempFile := '';
+end;
+
+Procedure T4GRoundTripTests.Gen4_Float16_ValuesPreserved;
+// The test values are integers below 2048, which float16 holds exactly.
+var
+  TempFile: string;
+  Props: TKeyValuePairs;
+  Written, ReadBack: TFloat64Matrices;
+  Mismatch: string;
+begin
+  TempFile := MakeTempFile;
+  Written := BuildTestMatrices;
+  try
+    Props := MakeWriteProps(TempFile, '4g');
+    Props.Append('prec', 'float16');
+    Props.Append('compress', 'gzip');
+    Written.Save(Props);
+
+    ReadBack := TFloat64Matrices.Create(NMatrices, NZones);
+    try
+      ReadBack.Read(MakeReadProps(TempFile, '4g'));
+      Mismatch := CompareRoundTrip(Written, ReadBack, TolExact);
+      Assert.IsEmpty(Mismatch, '4g float16 round-trip: ' + Mismatch);
+    finally
+      ReadBack.Free;
+    end;
+  finally
+    Written.Free;
+  end;
 end;
 
 procedure T4GRoundTripTests.Gen4_Float32_ValuesPreserved;
