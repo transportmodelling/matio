@@ -22,13 +22,9 @@ Type
   // a matrix order, so the Ordered-property is false and matrices should be
   // selected by label. Without a selection the matrices are enumerated in
   // alphabetical order.
-  private
-    FVersion: AnsiString;
   protected
     Function ReadAttributes: Integer; override; // Returns size
     Function MatrixGroup: ANSIString; override;
-  public
-    Property Version: AnsiString read FVersion;
   end;
 
 ////////////////////////////////////////////////////////////////////////////////

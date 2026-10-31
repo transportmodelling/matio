@@ -16,13 +16,13 @@ Uses
 
 Type
   TCubeMatrixWriter = Class(THdf5MatrixWriter)
+  public
+    Const
+      CubeMatrixVersion = '1.0';
   strict protected
     Function Groups: TArray<ANSIString>; override;
     Function MatrixGroup: ANSIString; override;
     Procedure WriteAttributes(const FileLabel: ANSIString; Size: Integer); override;
-  public
-    Const
-      CubeMatrixVersion = '1.0';
   end;
 
 ////////////////////////////////////////////////////////////////////////////////

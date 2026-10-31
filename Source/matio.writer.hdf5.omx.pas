@@ -18,27 +18,27 @@ Uses
 
 Type
   TOMXMatrixWriter = Class(THdf5MatrixWriter)
-  strict protected
-    Function Groups: TArray<ANSIString>; override;
-    Function MatrixGroup: ANSIString; override;
-    Procedure WriteAttributes(const FileLabel: ANSIString; Size: Integer); override;
   public
     Const
       OMXversion = '0.2';
+  strict protected
+    Function MatrixGroup: ANSIString; override;
+    Function Groups: TArray<ANSIString>; override;
+    Procedure WriteAttributes(const FileLabel: ANSIString; Size: Integer); override;
   end;
 
 ////////////////////////////////////////////////////////////////////////////////
 implementation
 ////////////////////////////////////////////////////////////////////////////////
 
-Function TOMXMatrixWriter.Groups: TArray<ANSIString>;
-begin
-  Result := ['/data','/lookup'];
-end;
-
 Function TOMXMatrixWriter.MatrixGroup: ANSIString;
 begin
   Result := '/data';
+end;
+
+Function TOMXMatrixWriter.Groups: TArray<ANSIString>;
+begin
+  Result := ['/data','/lookup'];
 end;
 
 Procedure TOMXMatrixWriter.WriteAttributes(const FileLabel: ANSIString; Size: Integer);

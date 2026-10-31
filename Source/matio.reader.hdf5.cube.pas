@@ -16,13 +16,9 @@ Uses
 
 Type
   TCubeMatrixReader = Class(THdf5MatrixReader)
-  private
-    FVersion: AnsiString;
   protected
     Function ReadAttributes: Integer; override; // Returns size
     Function MatrixGroup: ANSIString; override;
-  public
-    Property Version: AnsiString read FVersion;
   end;
 
 ////////////////////////////////////////////////////////////////////////////////

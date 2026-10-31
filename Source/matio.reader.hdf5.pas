@@ -12,7 +12,7 @@ interface
 ////////////////////////////////////////////////////////////////////////////////
 
 Uses
-  SysUtils, Types, ArrBld, matio, matio.row, matio.reader, matio.hdf5;
+  SysUtils, Types, Math, ArrBld, matio, matio.row, matio.reader, matio.hdf5;
 
 Type
   THdf5MatrixReaderClass = Class of THdf5MatrixReader;
@@ -28,11 +28,17 @@ Type
       MatrixPrecision: array of THdf5Precision;
       MatrixDataSetIds,MatrixDataSpaceIds: array of Int64;
     Class Function LinkIterCallback(loc_id: Int64; Name: PAnsiChar; Info: Pointer; opdata:Pointer) : Integer;  static; cdecl;
+    Procedure OpenFile(const FileName: String);
     Procedure ReadFileLabel;
     Procedure GetAvailableMatrices;
+    Procedure SetMatrixPrecision(const Matrix: Integer);
+    Procedure OpenMatrix(const Matrix: Integer; const MatrixLabel: String);
     Procedure GetMatrices(const MatrixLabels: array of String);
+    Procedure ReadFloat32Row(const Matrix: Integer; const Rows: TCustomMatrixRows);
+    Procedure ReadFloat64Row(const Matrix: Integer; const Rows: TCustomMatrixRows);
   protected
     Hdf5FileId: Int64;
+    FVersion: AnsiString;
     Function ReadAttributes: Integer; virtual; abstract; // Returns size
     Function MatrixGroup: ANSIString; virtual; abstract;
     Procedure Read(const CurrentRow: Integer; const Rows: TCustomMatrixRows); override;
@@ -42,11 +48,20 @@ Type
     Constructor Create(const FileName: String); overload;
     Constructor Create(const FileName: String; const MatrixLabels: array of String); overload;
     Destructor Destroy; override;
+  public
+    Property Version: AnsiString read FVersion;
   end;
 
 ////////////////////////////////////////////////////////////////////////////////
 implementation
 ////////////////////////////////////////////////////////////////////////////////
+
+Class Function THdf5MatrixReader.LinkIterCallback(loc_id: Int64; Name: PAnsiChar; Info: Pointer; opdata:Pointer) : Integer;
+begin
+  var MatrixFile := THdf5MatrixReader(opdata);
+  MatrixFile.AvailableMatrices := MatrixFile.AvailableMatrices + [Name];
+  Result := 0;
+end;
 
 Class Function THdf5MatrixReader.Available: Boolean;
 begin
@@ -59,10 +74,7 @@ Constructor THdf5MatrixReader.Create(const FileName: String);
 // is set to false. The matrices are enumerated in alphabetical order.
 begin
   inherited Create(FileName,false);
-  Hdf5FileId := Hdf5Dll.H5Fopen(FileName,Hdf5Dll.H5F_ACC_RDONLY,Hdf5Dll.H5P_DEFAULT);
-  SetSize(ReadAttributes);
-  ReadFileLabel;
-  GetAvailableMatrices;
+  OpenFile(FileName);
   GetMatrices(AvailableMatrices);
 end;
 
@@ -72,19 +84,17 @@ Constructor THdf5MatrixReader.Create(const FileName: String; const MatrixLabels:
 // name in the list of matrix labels.
 begin
   inherited Create(FileName,false);
-  Hdf5FileId := Hdf5Dll.H5Fopen(FileName,Hdf5Dll.H5F_ACC_RDONLY,Hdf5Dll.H5P_DEFAULT);
-  SetSize(ReadAttributes);
-  ReadFileLabel;
-  GetAvailableMatrices;
+  OpenFile(FileName);
   GetMatrices(MatrixLabels);
   FOrdered := true; // Index provided by selection
 end;
 
-Class Function THdf5MatrixReader.LinkIterCallback(loc_id: Int64; Name: PAnsiChar; Info: Pointer; opdata:Pointer) : Integer;
+Procedure THdf5MatrixReader.OpenFile(const FileName: String);
 begin
-  var MatrixFile := THdf5MatrixReader(opdata);
-  MatrixFile.AvailableMatrices := MatrixFile.AvailableMatrices + [Name];
-  Result := 0;
+  Hdf5FileId := Hdf5Dll.H5Fopen(FileName,Hdf5Dll.H5F_ACC_RDONLY,Hdf5Dll.H5P_DEFAULT);
+  SetSize(ReadAttributes);
+  ReadFileLabel;
+  GetAvailableMatrices;
 end;
 
 Procedure THdf5MatrixReader.ReadFileLabel;
@@ -113,6 +123,28 @@ begin
   Hdf5Dll.H5Gclose(DataGroup);
 end;
 
+Procedure THdf5MatrixReader.SetMatrixPrecision(const Matrix: Integer);
+begin
+  var DataType := Hdf5Dll.H5Dget_type(MatrixDataSetIds[Matrix]);
+  var TypeSize := Hdf5Dll.H5Tget_size(DataType);
+  var TypeClass := Hdf5Dll.H5Tget_class(DataType);
+  if (TypeClass = Hdf5Dll.H5T_FLOAT) and (TypeSize = 4) then
+    MatrixPrecision[Matrix] := ftFloat32
+  else
+  if (TypeClass = Hdf5Dll.H5T_FLOAT) and (TypeSize = 8) then
+    MatrixPrecision[Matrix] := ftFloat64
+  else
+    raise Exception.Create('Dataset type not supported');
+end;
+
+Procedure THdf5MatrixReader.OpenMatrix(const Matrix: Integer; const MatrixLabel: String);
+begin
+  SetMatrixLabels(Matrix,MatrixLabel);
+  MatrixDataSetIds[Matrix] := Hdf5Dll.H5Dopen2(Hdf5FileId,MatrixGroup+'/'+MatrixLabel,Hdf5Dll.H5P_DEFAULT);
+  MatrixDataSpaceIds[Matrix] := Hdf5Dll.H5Dget_space(MatrixDataSetIds[Matrix]);
+  SetMatrixPrecision(Matrix);
+end;
+
 Procedure THdf5MatrixReader.GetMatrices(const MatrixLabels: array of String);
 begin
   SetCount(Length(MatrixLabels));
@@ -121,32 +153,22 @@ begin
   SetLength(MatrixPrecision,Length(MatrixLabels));
   SetLength(MatrixDataSetIds,Length(MatrixLabels));
   SetLength(MatrixDataSpaceIds,Length(MatrixLabels));
+  SetLength(Float32Row,Size);
+  SetLength(Float64Row,Size);
   RowSpaceId := Hdf5Dll.H5Screate_simple(2,@ChunkSize[0]);
-  for var Matrix := 0 to Count-1 do
-  begin
-    SetMatrixLabels(Matrix,MatrixLabels[Matrix]);
-    MatrixDataSetIds[Matrix] := Hdf5Dll.H5Dopen2(Hdf5FileId,MatrixGroup+'/'+MatrixLabels[Matrix],Hdf5Dll.H5P_DEFAULT);
-    MatrixDataSpaceIds[Matrix] := Hdf5Dll.H5Dget_space(MatrixDataSetIds[Matrix]);
-    // Set matrix data type
-    var DataType := Hdf5Dll.H5Dget_type(MatrixDataSetIds[Matrix]);
-    var TypeSize := Hdf5Dll.H5Tget_size(DataType);
-    var TypeClass := Hdf5Dll.H5Tget_class(DataType);
-    if TypeClass = Hdf5Dll.H5T_FLOAT then
-    begin
-      if TypeSize = 4 then
-      begin
-        SetLength(Float32Row,Size);
-        MatrixPrecision[Matrix] := ftFloat32;
-      end else
-      if TypeSize = 8 then
-      begin
-        SetLength(Float64Row,Size);
-        MatrixPrecision[Matrix] := ftFloat64;
-      end else
-        raise Exception.Create('Dataset type not supported')
-    end else
-      raise Exception.Create('Dataset type not supported');
-  end;
+  for var Matrix := 0 to Count-1 do OpenMatrix(Matrix,MatrixLabels[Matrix]);
+end;
+
+Procedure THdf5MatrixReader.ReadFloat32Row(const Matrix: Integer; const Rows: TCustomMatrixRows);
+begin
+  Hdf5Dll.H5Dread(MatrixDataSetIds[Matrix],Hdf5Dll.H5T_NATIVE_FLOAT,RowSpaceId,MatrixDataSpaceIds[Matrix],Hdf5Dll.H5P_DEFAULT,@Float32Row[0]);
+  for var Column := 0 to Min(Size,Rows.Size)-1 do Rows[Matrix,Column] := Float32Row[Column];
+end;
+
+Procedure THdf5MatrixReader.ReadFloat64Row(const Matrix: Integer; const Rows: TCustomMatrixRows);
+begin
+  Hdf5Dll.H5Dread(MatrixDataSetIds[Matrix],Hdf5Dll.H5T_NATIVE_DOUBLE,RowSpaceId,MatrixDataSpaceIds[Matrix],Hdf5Dll.H5P_DEFAULT,@Float64Row[0]);
+  for var Column := 0 to Min(Size,Rows.Size)-1 do Rows[Matrix,Column] := Float64Row[Column];
 end;
 
 Procedure THdf5MatrixReader.Read(const CurrentRow: Integer; const Rows: TCustomMatrixRows);
@@ -155,36 +177,15 @@ begin
   begin
     Hdf5Dll.SelectRowHyperslab(MatrixDataSpaceIds[Matrix],CurrentRow,Size);
     case MatrixPrecision[Matrix] of
-      ftFloat32:
-        begin
-          Hdf5Dll.H5Dread(MatrixDataSetIds[Matrix],Hdf5Dll.H5T_NATIVE_FLOAT,RowSpaceId,MatrixDataSpaceIds[Matrix],Hdf5Dll.H5P_DEFAULT,@Float32Row[0]);
-          if Size < Rows.Size then
-            for var Column := 0 to Size-1 do Rows[Matrix,Column] := Float32Row[Column]
-          else
-            for var Column := 0 to Rows.Size-1 do Rows[Matrix,Column] := Float32Row[Column]
-        end;
-      ftFloat64:
-        begin
-          Hdf5Dll.H5Dread(MatrixDataSetIds[Matrix],Hdf5Dll.H5T_NATIVE_DOUBLE,RowSpaceId,MatrixDataSpaceIds[Matrix],Hdf5Dll.H5P_DEFAULT,@Float64Row[0]);
-          if Size < Rows.Size then
-            for var Column := 0 to Size-1 do Rows[Matrix,Column] := Float64Row[Column]
-          else
-            for var Column := 0 to Rows.Size-1 do Rows[Matrix,Column] := Float64Row[Column]
-        end;
+      ftFloat32: ReadFloat32Row(Matrix,Rows);
+      ftFloat64: ReadFloat64Row(Matrix,Rows);
     end;
   end;
 end;
 
 Destructor THdf5MatrixReader.Destroy;
 begin
-  if Hdf5Dll <> nil then
-  begin
-    for var Matrix := 0 to Count-1 do
-    begin
-      Hdf5Dll.H5Dclose(MatrixDataSetIds[Matrix]);
-      Hdf5Dll.H5Sclose(MatrixDataSpaceIds[Matrix]);
-    end;
-  end;
+  if Hdf5Dll <> nil then Hdf5Dll.CloseDataSets(MatrixDataSetIds,MatrixDataSpaceIds);
   Hdf5Dll.H5Sclose(RowSpaceId);
   Hdf5Dll.H5Fclose(Hdf5FileId);
   inherited Destroy;

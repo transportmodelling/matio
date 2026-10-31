@@ -73,6 +73,18 @@ Type
     FH5Fclose: Function(FileId: Int64): Integer; cdecl;
     FH5close: Function: Integer; cdecl;
     Function GetDllMethod(MethodName: String): Pointer;
+    Function GetDllConstant(const ConstantName: String): Int64;
+    Procedure LoadFileMethods;
+    Procedure LoadTypeMethods;
+    Procedure LoadSpaceMethods;
+    Procedure LoadAttributeMethods;
+    Procedure LoadPropertyMethods;
+    Procedure LoadGroupMethods;
+    Procedure LoadDataSetMethods;
+    Procedure LoadCloseMethods;
+    Procedure LoadMethods;
+    Procedure LoadConstants;
+    Function NewStringType(const Size: UInt32): Int64;
   public
     Constructor Create(const DllPath: string);
     // Dll methods
@@ -132,6 +144,7 @@ Type
     Procedure CreateIntArrayAttribute(ObjId: Int64; ObjectName,AttributeName: AnsiString; const ArrayData: array of Integer);
     Procedure ReadStringAttribute(ObjId: Int64; ObjectName,AttributeName: AnsiString; var AttributeValue: AnsiString);
     Procedure ReadIntArrayAttribute(ObjId: Int64; ObjectName,AttributeName: AnsiString; var ArrayData: array of Integer);
+    Procedure CloseDataSets(const DataSetIds,DataSpaceIds: array of Int64);
     Destructor Destroy; override;
   public
     Const
@@ -168,67 +181,9 @@ begin
   DllHandle := SafeLoadLibrary(DllPath);
   if DllHandle <> 0 then
   begin
-    // Load Hdf5 dll
-    FH5open := GetDllMethod('H5open');
-    FH5Fcreate := GetDllMethod('H5Fcreate');
-    FH5Fopen := GetDllMethod('H5Fopen');
-    FH5Oopen := GetDllMethod('H5Oopen');
-    FH5Literate := GetDllMethod('H5Literate1');
-    FH5Tcopy := GetDllMethod('H5Tcopy');
-    FH5Tget_class := GetDllMethod('H5Tget_class');
-    FH5Tget_size := GetDllMethod('H5Tget_size');
-    FH5Tset_size := GetDllMethod('H5Tset_size');
-    FH5Tset_strpad := GetDllMethod('H5Tset_strpad');
-    FH5Screate := GetDllMethod('H5Screate');
-    FH5Screate_simple := GetDllMethod('H5Screate_simple');
-    FH5Sselect_hyperslab := GetDllMethod('H5Sselect_hyperslab');
-    FH5Sget_select_bounds := GetDllMethod('H5Sget_select_bounds');
-    FH5Acreate2 := GetDllMethod('H5Acreate2');
-    FH5Aopen_by_name := GetDllMethod('H5Aopen_by_name');
-    FH5Aexists_by_name := GetDllMethod('H5Aexists_by_name');
-    FH5Aget_type := GetDllMethod('H5Aget_type');
-    FH5Aget_space := GetDllMethod('H5Aget_space');
-    FH5Aget_storage_size := GetDllMethod('H5Aget_storage_size');
-    FH5Aread := GetDllMethod('H5Aread');
-    FH5Pcreate := GetDllMethod('H5Pcreate');
-    FH5Pget_link_creation_order := GetDllMethod('H5Pget_link_creation_order');
-    FH5Pset_link_creation_order := GetDllMethod('H5Pset_link_creation_order');
-    FH5Pset_chunk := GetDllMethod('H5Pset_chunk');
-    FH5Pset_deflate := GetDllMethod('H5Pset_deflate');
-    FH5Pset_fill_value := GetDllMethod('H5Pset_fill_value');
-    FH5Gcreate2 := GetDllMethod('H5Gcreate2');
-    FH5Gopen2 := GetDllMethod('H5Gopen2');
-    FH5Gget_create_plist := GetDllMethod('H5Gget_create_plist');
-    FH5Gclose := GetDllMethod('H5Gclose');
-    FH5Awrite := GetDllMethod('H5Awrite');
-    FH5Dcreate2 := GetDllMethod('H5Dcreate2');
-    FH5Dopen2 := GetDllMethod('H5Dopen2');
-    FH5Dget_type := GetDllMethod('H5Dget_type');
-    FH5Dget_space := GetDllMethod('H5Dget_space');
-    FH5Dread := GetDllMethod('H5Dread');
-    FH5Dwrite := GetDllMethod('H5Dwrite');
-    FH5Dclose := GetDllMethod('H5Dclose');
-    FH5Aclose:= GetDllMethod('H5Aclose');
-    FH5Sclose := GetDllMethod('H5Sclose');
-    FH5Tclose := GetDllMethod('H5Tclose');
-    FH5Oclose := GetDllMethod('H5Oclose');
-    FH5Fclose := GetDllMethod('H5Fclose');
-    FH5Pclose := GetDllMethod('H5Pclose');
-    FH5close := GetDllMethod('H5close');
-    // Set constants
+    LoadMethods;
     H5open;
-    FH5T_C_S1 := PInt64(GetDllMethod('H5T_C_S1_g'))^;
-    if FH5T_C_S1 < 0 then raise Exception.Create('Error getting H5T_C_S1');
-    FH5P_CLS_GROUP_CREATE_ID := PInt64(GetDllMethod('H5P_CLS_GROUP_CREATE_ID_g'))^;
-    if FH5P_CLS_GROUP_CREATE_ID < 0 then raise Exception.Create('Error getting H5P_CLS_GROUP_CREATE_ID');
-    FH5P_CLS_DATASET_CREATE_ID := PInt64(GetDllMethod('H5P_CLS_DATASET_CREATE_ID_g'))^;
-    if FH5P_CLS_DATASET_CREATE_ID < 0 then raise Exception.Create('Error getting H5P_CLS_DATASET_CREATE_ID');
-    FH5T_NATIVE_INT := PInt64(GetDllMethod('H5T_NATIVE_INT_g'))^;
-    if FH5T_NATIVE_INT < 0 then raise Exception.Create('Error getting H5T_NATIVE_INT');
-    FH5T_NATIVE_FLOAT := PInt64(GetDllMethod('H5T_NATIVE_FLOAT_g'))^;
-    if FH5T_NATIVE_FLOAT < 0 then raise Exception.Create('Error getting H5T_NATIVE_FLOAT');
-    FH5T_NATIVE_DOUBLE := PInt64(GetDllMethod('H5T_NATIVE_DOUBLE_g'))^;
-    if FH5T_NATIVE_DOUBLE < 0 then raise Exception.Create('Error getting H5T_NATIVE_DOUBLE');
+    LoadConstants;
   end else
     raise Exception.Create('Cannot load hdf5-dll');
 end;
@@ -237,6 +192,112 @@ Function THdf5Dll.GetDllMethod(MethodName: String): Pointer;
 begin
   Result := GetProcAddress(DllHandle,PChar(MethodName));
   if Result = nil then raise Exception.Create('Cannot load dll method ' + MethodName);
+end;
+
+Function THdf5Dll.GetDllConstant(const ConstantName: String): Int64;
+begin
+  Result := PInt64(GetDllMethod(ConstantName+'_g'))^;
+  if Result < 0 then raise Exception.Create('Error getting ' + ConstantName);
+end;
+
+Procedure THdf5Dll.LoadFileMethods;
+begin
+  FH5open := GetDllMethod('H5open');
+  FH5Fcreate := GetDllMethod('H5Fcreate');
+  FH5Fopen := GetDllMethod('H5Fopen');
+  FH5Oopen := GetDllMethod('H5Oopen');
+  FH5Literate := GetDllMethod('H5Literate1');
+end;
+
+Procedure THdf5Dll.LoadTypeMethods;
+begin
+  FH5Tcopy := GetDllMethod('H5Tcopy');
+  FH5Tget_class := GetDllMethod('H5Tget_class');
+  FH5Tget_size := GetDllMethod('H5Tget_size');
+  FH5Tset_size := GetDllMethod('H5Tset_size');
+  FH5Tset_strpad := GetDllMethod('H5Tset_strpad');
+end;
+
+Procedure THdf5Dll.LoadSpaceMethods;
+begin
+  FH5Screate := GetDllMethod('H5Screate');
+  FH5Screate_simple := GetDllMethod('H5Screate_simple');
+  FH5Sselect_hyperslab := GetDllMethod('H5Sselect_hyperslab');
+  FH5Sget_select_bounds := GetDllMethod('H5Sget_select_bounds');
+end;
+
+Procedure THdf5Dll.LoadAttributeMethods;
+begin
+  FH5Acreate2 := GetDllMethod('H5Acreate2');
+  FH5Aopen_by_name := GetDllMethod('H5Aopen_by_name');
+  FH5Aexists_by_name := GetDllMethod('H5Aexists_by_name');
+  FH5Aget_type := GetDllMethod('H5Aget_type');
+  FH5Aget_space := GetDllMethod('H5Aget_space');
+  FH5Aget_storage_size := GetDllMethod('H5Aget_storage_size');
+  FH5Aread := GetDllMethod('H5Aread');
+  FH5Awrite := GetDllMethod('H5Awrite');
+end;
+
+Procedure THdf5Dll.LoadPropertyMethods;
+begin
+  FH5Pcreate := GetDllMethod('H5Pcreate');
+  FH5Pget_link_creation_order := GetDllMethod('H5Pget_link_creation_order');
+  FH5Pset_link_creation_order := GetDllMethod('H5Pset_link_creation_order');
+  FH5Pset_chunk := GetDllMethod('H5Pset_chunk');
+  FH5Pset_deflate := GetDllMethod('H5Pset_deflate');
+  FH5Pset_fill_value := GetDllMethod('H5Pset_fill_value');
+end;
+
+Procedure THdf5Dll.LoadGroupMethods;
+begin
+  FH5Gcreate2 := GetDllMethod('H5Gcreate2');
+  FH5Gopen2 := GetDllMethod('H5Gopen2');
+  FH5Gget_create_plist := GetDllMethod('H5Gget_create_plist');
+  FH5Gclose := GetDllMethod('H5Gclose');
+end;
+
+Procedure THdf5Dll.LoadDataSetMethods;
+begin
+  FH5Dcreate2 := GetDllMethod('H5Dcreate2');
+  FH5Dopen2 := GetDllMethod('H5Dopen2');
+  FH5Dget_type := GetDllMethod('H5Dget_type');
+  FH5Dget_space := GetDllMethod('H5Dget_space');
+  FH5Dread := GetDllMethod('H5Dread');
+  FH5Dwrite := GetDllMethod('H5Dwrite');
+end;
+
+Procedure THdf5Dll.LoadCloseMethods;
+begin
+  FH5Dclose := GetDllMethod('H5Dclose');
+  FH5Aclose := GetDllMethod('H5Aclose');
+  FH5Sclose := GetDllMethod('H5Sclose');
+  FH5Tclose := GetDllMethod('H5Tclose');
+  FH5Oclose := GetDllMethod('H5Oclose');
+  FH5Fclose := GetDllMethod('H5Fclose');
+  FH5Pclose := GetDllMethod('H5Pclose');
+  FH5close := GetDllMethod('H5close');
+end;
+
+Procedure THdf5Dll.LoadMethods;
+begin
+  LoadFileMethods;
+  LoadTypeMethods;
+  LoadSpaceMethods;
+  LoadAttributeMethods;
+  LoadPropertyMethods;
+  LoadGroupMethods;
+  LoadDataSetMethods;
+  LoadCloseMethods;
+end;
+
+Procedure THdf5Dll.LoadConstants;
+begin
+  FH5T_C_S1 := GetDllConstant('H5T_C_S1');
+  FH5P_CLS_GROUP_CREATE_ID := GetDllConstant('H5P_CLS_GROUP_CREATE_ID');
+  FH5P_CLS_DATASET_CREATE_ID := GetDllConstant('H5P_CLS_DATASET_CREATE_ID');
+  FH5T_NATIVE_INT := GetDllConstant('H5T_NATIVE_INT');
+  FH5T_NATIVE_FLOAT := GetDllConstant('H5T_NATIVE_FLOAT');
+  FH5T_NATIVE_DOUBLE := GetDllConstant('H5T_NATIVE_DOUBLE');
 end;
 
 Procedure THdf5Dll.H5open;
@@ -512,18 +573,19 @@ begin
   if FH5close < 0 then raise Exception.Create('Error calling H5close')
 end;
 
-Procedure THdf5Dll.CreateStringAttribute(ObjId: Int64; ObjectName,AttributeName,AttributeValue: AnsiString);
-Var
-  AttributeSize: UInt32;
-  ObjectId,TypeId,SpaceId,AttributeId: Int64;
+Function THdf5Dll.NewStringType(const Size: UInt32): Int64;
 begin
-  AttributeSize := Length(AttributeValue) + 1;
-  ObjectId := H5Oopen(ObjId,ObjectName,H5P_DEFAULT);
-  TypeId := H5Tcopy(H5T_C_S1);
-  H5Tset_size(TypeId,AttributeSize);
-  H5Tset_strpad(TypeId,H5T_STR_NULLTERM);
-  SpaceId := H5Screate(H5S_SCALAR);
-  AttributeId := H5Acreate2(ObjId,AttributeName,TypeId,SpaceId,H5P_DEFAULT,H5P_DEFAULT);
+  Result := H5Tcopy(H5T_C_S1);
+  H5Tset_size(Result,Size);
+  H5Tset_strpad(Result,H5T_STR_NULLTERM);
+end;
+
+Procedure THdf5Dll.CreateStringAttribute(ObjId: Int64; ObjectName,AttributeName,AttributeValue: AnsiString);
+begin
+  var ObjectId := H5Oopen(ObjId,ObjectName,H5P_DEFAULT);
+  var TypeId := NewStringType(Length(AttributeValue)+1);
+  var SpaceId := H5Screate(H5S_SCALAR);
+  var AttributeId := H5Acreate2(ObjId,AttributeName,TypeId,SpaceId,H5P_DEFAULT,H5P_DEFAULT);
   H5Awrite(AttributeId,TypeId,pAnsiChar(AttributeValue));
   H5Aclose(AttributeId);
   H5Sclose(SpaceId);
@@ -560,14 +622,11 @@ begin
 end;
 
 Procedure THdf5Dll.ReadStringAttribute(ObjId: Int64; ObjectName,AttributeName: AnsiString; var AttributeValue: AnsiString);
-var
-  AttributeId,TypeId,SpaceId: Int64;
-  AttributeSize: UInt64;
 begin
-  AttributeID := H5Aopen_by_name(ObjID,ObjectName,AttributeName,H5P_DEFAULT,H5P_DEFAULT);
-  TypeID := H5Aget_type(AttributeId);
-  SpaceId := H5Aget_space(AttributeID);
-  AttributeSize := H5Aget_storage_size(AttributeId);
+  var AttributeId := H5Aopen_by_name(ObjID,ObjectName,AttributeName,H5P_DEFAULT,H5P_DEFAULT);
+  var TypeId := H5Aget_type(AttributeId);
+  var SpaceId := H5Aget_space(AttributeID);
+  var AttributeSize := H5Aget_storage_size(AttributeId);
   SetLength(AttributeValue, AttributeSize+1);
   H5Aread(AttributeId,TypeId,pAnsiChar(AttributeValue));
   // Truncate at the null terminator of null-terminated strings; the ensured
@@ -588,6 +647,15 @@ begin
   H5Aread(AttributeId,H5T_NATIVE_INT,@ArrayData[0]);
   H5Aclose(AttributeId);
   H5Sclose(SpaceId);
+end;
+
+Procedure THdf5Dll.CloseDataSets(const DataSetIds,DataSpaceIds: array of Int64);
+begin
+  for var DataSet := low(DataSetIds) to high(DataSetIds) do
+  begin
+    H5Dclose(DataSetIds[DataSet]);
+    H5Sclose(DataSpaceIds[DataSet]);
+  end;
 end;
 
 Destructor THdf5Dll.Destroy;
