@@ -27,6 +27,16 @@ Type
     Procedure WriteFloat16(Value: Float32);
     Procedure WriteFloat32(Value: Float32);
     Procedure WriteFloat64(Value: Float64);
+    Procedure WriteLabel(const FullLabel: String);
+    Procedure WriteFileHeader(const FileLabel: String; const Compression: T4GCompression);
+    Procedure WriteMatrixHeaders(const MatrixLabels: array of String);
+    Procedure WriteHeader(const FileLabel: String;
+                          const MatrixLabels: array of String;
+                          const Compression: T4GCompression);
+    Procedure SetCompressionStream(const Compression: T4GCompression);
+    Procedure WriteFloat16Rows(const Rows: TVirtualMatrixRows);
+    Procedure WriteFloat32Rows(const Rows: TVirtualMatrixRows);
+    Procedure WriteFloat64Rows(const Rows: TVirtualMatrixRows);
   strict protected
     Procedure Write(const CurrentRow: Integer; const Rows: TVirtualMatrixRows); override;
   public
@@ -50,39 +60,8 @@ Constructor T4GMatrixWriter.Create(const FileName,FileLabel: String;
 begin
   inherited Create(FileName,Length(MatrixLabels),Size);
   FilePrecision := Precision;
-  // Write file header
-  BinaryWriter := TBinaryWriter.Create(FileStream,TEncoding.UTF8);
-  try
-    WriteChar('4');
-    WriteChar('G');
-    WriteByte(20);
-    WriteByte(1);
-    WriteByte(Ord(Precision));
-    WriteByte(ord(Compression));
-    WriteByte(Count);
-    WriteUInt16(Size);
-    WriteUInt32(0); // User bytes
-    var Lbl := FileLabel;
-    if Length(Lbl) > 255 then Lbl := Copy(Lbl,1,255);
-    WriteByte(Length(Lbl));
-    for var Chr := 1 to Length(Lbl) do WriteChar(Lbl[Chr]);
-    // Write matrix headers
-    for var Mtrx := 0 to Count-1 do
-    begin
-      WriteUInt16(0); // User bytes
-      Lbl := MatrixLabels[Mtrx];
-      if Length(Lbl) > 255 then Lbl := Copy(Lbl,1,255);
-      WriteByte(Length(Lbl));
-      for var Chr := 1 to Length(Lbl) do WriteChar(Lbl[Chr]);
-    end;
-  finally
-    BinaryWriter.Free;
-  end;
-  // Set compression stream
-  case Compression of
-    cpNone: CompressionStream := FileStream; // No compression
-    cpGZip: CompressionStream := TZCompressionStream.Create(FileStream,zcDefault,15+16);
-  end;
+  WriteHeader(FileLabel,MatrixLabels,Compression);
+  SetCompressionStream(Compression);
   BinaryWriter := TBinaryWriter.Create(CompressionStream);
 end;
 
@@ -124,18 +103,84 @@ begin
   BinaryWriter.Write(Value);
 end;
 
+Procedure T4GMatrixWriter.WriteLabel(const FullLabel: String);
+begin
+  var Lbl := Copy(FullLabel,1,255);
+  WriteByte(Length(Lbl));
+  for var Chr := 1 to Length(Lbl) do WriteChar(Lbl[Chr]);
+end;
+
+Procedure T4GMatrixWriter.WriteFileHeader(const FileLabel: String; const Compression: T4GCompression);
+begin
+  WriteChar('4');
+  WriteChar('G');
+  WriteByte(20);
+  WriteByte(1);
+  WriteByte(Ord(FilePrecision));
+  WriteByte(ord(Compression));
+  WriteByte(Count);
+  WriteUInt16(Size);
+  WriteUInt32(0); // User bytes
+  WriteLabel(FileLabel);
+end;
+
+Procedure T4GMatrixWriter.WriteMatrixHeaders(const MatrixLabels: array of String);
+begin
+  for var Mtrx := 0 to Count-1 do
+  begin
+    WriteUInt16(0); // User bytes
+    WriteLabel(MatrixLabels[Mtrx]);
+  end;
+end;
+
+Procedure T4GMatrixWriter.WriteHeader(const FileLabel: String;
+                                      const MatrixLabels: array of String;
+                                      const Compression: T4GCompression);
+begin
+  BinaryWriter := TBinaryWriter.Create(FileStream,TEncoding.UTF8);
+  try
+    WriteFileHeader(FileLabel,Compression);
+    WriteMatrixHeaders(MatrixLabels);
+  finally
+    BinaryWriter.Free;
+  end;
+end;
+
+Procedure T4GMatrixWriter.SetCompressionStream(const Compression: T4GCompression);
+begin
+  case Compression of
+    cpNone: CompressionStream := FileStream; // No compression
+    cpGZip: CompressionStream := TZCompressionStream.Create(FileStream,zcDefault,15+16);
+  end;
+end;
+
+Procedure T4GMatrixWriter.WriteFloat16Rows(const Rows: TVirtualMatrixRows);
+begin
+  for var Mtrx := 0 to Count-1 do
+  for var Col := 0 to Rows.Size-1 do
+  WriteFloat16(Rows[Mtrx,Col]);
+end;
+
+Procedure T4GMatrixWriter.WriteFloat32Rows(const Rows: TVirtualMatrixRows);
+begin
+  for var Mtrx := 0 to Count-1 do
+  for var Col := 0 to Rows.Size-1 do
+  WriteFloat32(Rows[Mtrx,Col]);
+end;
+
+Procedure T4GMatrixWriter.WriteFloat64Rows(const Rows: TVirtualMatrixRows);
+begin
+  for var Mtrx := 0 to Count-1 do
+  for var Col := 0 to Rows.Size-1 do
+  WriteFloat64(Rows[Mtrx,Col]);
+end;
+
 Procedure T4GMatrixWriter.Write(const CurrentRow: Integer; const Rows: TVirtualMatrixRows);
 begin
   case FilePrecision of
-    ftFloat16: for var Mtrx := 0 to Count-1 do
-               for var Col := 0 to Rows.Size-1 do
-               WriteFloat16(Rows[Mtrx,Col]);
-    ftFloat32: for var Mtrx := 0 to Count-1 do
-               for var Col := 0 to Rows.Size-1 do
-               WriteFloat32(Rows[Mtrx,Col]);
-    ftFloat64: for var Mtrx := 0 to Count-1 do
-               for var Col := 0 to Rows.Size-1 do
-               WriteFloat64(Rows[Mtrx,Col]);
+    ftFloat16: WriteFloat16Rows(Rows);
+    ftFloat32: WriteFloat32Rows(Rows);
+    ftFloat64: WriteFloat64Rows(Rows);
   end;
 end;
 
