@@ -41,6 +41,10 @@ type
     [Test] procedure OMX_UnorderedReader_LabelsAlphabetical;
     [Test] procedure OMX_SelectByIndex_Raises;
     [Test] procedure OMX_CreateReader_DefaultOrdered_Raises;
+    // A failed constructor reports its own error and releases the file
+    [Test] Procedure OMX_MissingFile_ReportsOpenError;
+    [Test] Procedure OMX_MissingMatrix_ReportsOpenError;
+    [Test] Procedure OMX_MissingMatrix_ReleasesFile;
   end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -48,7 +52,7 @@ implementation
 ////////////////////////////////////////////////////////////////////////////////
 
 uses
-  SysUtils, KeyVal, matio.reader, matio.formats;
+  SysUtils, IOUtils, KeyVal, matio.reader, matio.reader.hdf5.omx, matio.formats;
 
 const
   // The txt reference file stores values rounded to 3 decimals; the omx file
@@ -211,6 +215,51 @@ begin
       Reader.Free;
     end,
     Exception);
+end;
+
+Procedure TOMXReaderTests.OMX_MissingFile_ReportsOpenError;
+begin
+  if FAvailable then
+    Assert.WillRaiseWithMessage(
+      Procedure
+      begin
+        TOMXMatrixReader.Create(DataDir + 'absent.omx').Free;
+      end,
+      Exception, 'Error calling H5Fopen')
+  else
+    Assert.Pass('HDF5 DLL not available - skipping OMX tests');
+end;
+
+Procedure TOMXReaderTests.OMX_MissingMatrix_ReportsOpenError;
+begin
+  if FAvailable then
+    Assert.WillRaiseWithMessage(
+      Procedure
+      begin
+        TOMXMatrixReader.Create(DataDir + 'example.omx', ['IVT', 'ABSENT']).Free;
+      end,
+      Exception, 'Error calling H5Dopen2')
+  else
+    Assert.Pass('HDF5 DLL not available - skipping OMX tests');
+end;
+
+Procedure TOMXReaderTests.OMX_MissingMatrix_ReleasesFile;
+begin
+  if FAvailable then
+  begin
+    var TempFile := TPath.Combine(TPath.GetTempPath, 'matio_test_missing_matrix.omx');
+    TFile.Copy(DataDir + 'example.omx', TempFile, true);
+    Assert.WillRaise(
+      Procedure
+      begin
+        TOMXMatrixReader.Create(TempFile, ['IVT', 'ABSENT']).Free;
+      end,
+      Exception);
+    // Windows refuses to delete a file that is still open
+    TFile.Delete(TempFile);
+    Assert.IsFalse(TFile.Exists(TempFile));
+  end else
+    Assert.Pass('HDF5 DLL not available - skipping OMX tests');
 end;
 
 end.

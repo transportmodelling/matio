@@ -85,6 +85,7 @@ Type
     Procedure LoadMethods;
     Procedure LoadConstants;
     Function NewStringType(const Size: UInt32): Int64;
+    Procedure CloseOpenedSpace(const SpaceId: Int64);
   public
     Constructor Create(const DllPath: string);
     // Dll methods
@@ -144,7 +145,7 @@ Type
     Procedure CreateIntArrayAttribute(ObjId: Int64; ObjectName,AttributeName: AnsiString; const ArrayData: array of Integer);
     Procedure ReadStringAttribute(ObjId: Int64; ObjectName,AttributeName: AnsiString; var AttributeValue: AnsiString);
     Procedure ReadIntArrayAttribute(ObjId: Int64; ObjectName,AttributeName: AnsiString; var ArrayData: array of Integer);
-    Procedure CloseDataSets(const DataSetIds,DataSpaceIds: array of Int64);
+    Procedure CloseMatrices(const FileId,RowSpaceId: Int64; const DataSetIds,DataSpaceIds: array of Int64);
     Destructor Destroy; override;
   public
     Const
@@ -305,6 +306,11 @@ begin
   Result := H5Tcopy(H5T_C_S1);
   H5Tset_size(Result,Size);
   H5Tset_strpad(Result,H5T_STR_NULLTERM);
+end;
+
+Procedure THdf5Dll.CloseOpenedSpace(const SpaceId: Int64);
+begin
+  if SpaceId > 0 then H5Sclose(SpaceId);
 end;
 
 Procedure THdf5Dll.H5open;
@@ -649,13 +655,17 @@ begin
   H5Sclose(SpaceId);
 end;
 
-Procedure THdf5Dll.CloseDataSets(const DataSetIds,DataSpaceIds: array of Int64);
+Procedure THdf5Dll.CloseMatrices(const FileId,RowSpaceId: Int64; const DataSetIds,DataSpaceIds: array of Int64);
+// Closes the handles of a matrix file. A constructor that fails leaves the ids
+// it did not reach at zero, which is never a valid Hdf5 id.
 begin
   for var DataSet := low(DataSetIds) to high(DataSetIds) do
   begin
-    H5Dclose(DataSetIds[DataSet]);
-    H5Sclose(DataSpaceIds[DataSet]);
+    if DataSetIds[DataSet] > 0 then H5Dclose(DataSetIds[DataSet]);
+    CloseOpenedSpace(DataSpaceIds[DataSet]);
   end;
+  CloseOpenedSpace(RowSpaceId);
+  if FileId > 0 then H5Fclose(FileId);
 end;
 
 Destructor THdf5Dll.Destroy;

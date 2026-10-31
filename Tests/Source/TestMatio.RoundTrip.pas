@@ -99,6 +99,9 @@ type
     [Test] procedure OMX_ValuesPreserved;
     [Test] procedure OMX_MatrixLabelsPreserved;
     [Test] procedure OMX_FileLabelPreserved;
+    // A failed constructor reports its own error and releases the file
+    [Test] Procedure OMX_UnwritablePath_ReportsCreateError;
+    [Test] Procedure OMX_DuplicateLabel_ReportsCreateError;
   end;
 
   // ---------------------------------------------------------------------------
@@ -140,7 +143,8 @@ implementation
 ////////////////////////////////////////////////////////////////////////////////
 
 uses
-  Winapi.Windows, SysUtils, IOUtils, Math, KeyVal, matio, matio.writer, matio.formats, matio.matrix;
+  Winapi.Windows, SysUtils, IOUtils, Math, KeyVal, matio, matio.writer, matio.writer.hdf5.omx, matio.formats,
+  matio.matrix;
 
 const
   NMatrices = 2;
@@ -941,6 +945,36 @@ begin
   finally
     Written.Free;
   end;
+end;
+
+Procedure TOMXRoundTripTests.OMX_UnwritablePath_ReportsCreateError;
+begin
+  if FAvailable then
+  begin
+    var TempFile := TPath.Combine(TPath.GetTempPath, 'matio_test_absent\out.omx');
+    Assert.WillRaiseWithMessage(
+      Procedure
+      begin
+        TOMXMatrixWriter.Create(TempFile, 'TestFile', ['MATRIX_A'], NZones).Free;
+      end,
+      Exception, 'Error calling H5Fcreate');
+  end else
+    Assert.Pass('HDF5 DLL not available - skipping OMX round-trip test');
+end;
+
+Procedure TOMXRoundTripTests.OMX_DuplicateLabel_ReportsCreateError;
+begin
+  if FAvailable then
+  begin
+    var TempFile := MakeTempFile;
+    Assert.WillRaiseWithMessage(
+      Procedure
+      begin
+        TOMXMatrixWriter.Create(TempFile, 'TestFile', ['MATRIX_A', 'MATRIX_A'], NZones).Free;
+      end,
+      Exception, 'Error calling H5Dcreate2');
+  end else
+    Assert.Pass('HDF5 DLL not available - skipping OMX round-trip test');
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

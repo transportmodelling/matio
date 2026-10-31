@@ -185,9 +185,7 @@ end;
 
 Destructor THdf5MatrixReader.Destroy;
 begin
-  if Hdf5Dll <> nil then Hdf5Dll.CloseDataSets(MatrixDataSetIds,MatrixDataSpaceIds);
-  Hdf5Dll.H5Sclose(RowSpaceId);
-  Hdf5Dll.H5Fclose(Hdf5FileId);
+  if Hdf5Dll <> nil then Hdf5Dll.CloseMatrices(Hdf5FileId,RowSpaceId,MatrixDataSetIds,MatrixDataSpaceIds);
   inherited Destroy;
 end;
 
