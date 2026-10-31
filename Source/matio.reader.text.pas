@@ -22,7 +22,15 @@ Type
     Parser: TStringParser;
     TextFormatSettings: TFormatSettings;
     StreamReader: TStreamReader;
+    Procedure CreateStreamReader(const Encoding: TEncoding);
+    Procedure ReadHeader;
+    Procedure ReadFirstLine(const Header: Boolean);
+    Procedure SetNextRow(const Row: Integer);
+    Procedure SetNextColumn(const Column: Integer);
+    Procedure ParseLine;
     Procedure Proceed;
+    Procedure NextLine;
+    Procedure ZeroizeColumns(const Rows: TCustomMatrixRows; const FirstCol,LastCol: Integer);
   protected
     Procedure Read(const CurrentRow: Integer; const Rows: TCustomMatrixRows); override;
   public
@@ -58,35 +66,65 @@ Constructor TTextMatrixReader.Create(const FileName: String;
 begin
   inherited Create(FileName);
   Parser := TStringParser.Create(Delimiter);
-  // Set format settings
   TextFormatSettings.DecimalSeparator := FormatSettings.DecimalSeparator;
   TextFormatSettings.ThousandSeparator := FormatSettings.ThousandSeparator;
-  // Create reader
+  CreateStreamReader(Encoding);
+  ReadFirstLine(Header);
+end;
+
+Procedure TTextMatrixReader.CreateStreamReader(const Encoding: TEncoding);
+begin
   if Encoding <> nil then
     StreamReader := TStreamReader.Create(FileStream,Encoding,true,BufferSize)
   else
     StreamReader := TStreamReader.Create(FileStream,TEncoding.ASCII,true,BufferSize);
-  // Read first line
+end;
+
+Procedure TTextMatrixReader.ReadHeader;
+begin
+  Inc(LineCount);
+  Parser.ReadLine(StreamReader);
+  if Parser.Count > 2 then
+  begin
+    SetCount(Parser.Count-2);
+    for var Matrix := 0 to Count-1 do SetMatrixLabels(Matrix,Parser[Matrix+2]);
+    NextLine;
+  end else
+    raise Exception.Create('Missing matrix header(s)');
+end;
+
+Procedure TTextMatrixReader.ReadFirstLine(const Header: Boolean);
+begin
   NextRow := -1;
   NextCol := -1;
-  if Header then
-  begin
-    Inc(LineCount);
-    Parser.ReadLine(StreamReader);
-    if Parser.Count > 2 then
-    begin
-      SetCount(Parser.Count-2);
-      for var Matrix := 0 to Count-1 do SetMatrixLabels(Matrix,Parser[Matrix+2]);
-      Proceed;
-      if (NValues <> 0) and (NValues <> Count) then
-      raise Exception.Create('Invalid number of columns at line ' + LineCount.ToString);
-    end else
-      raise Exception.Create('Missing matrix header(s)');
-  end else
+  if Header then ReadHeader else
   begin
     Proceed;
     SetCount(Nvalues);
   end;
+end;
+
+Procedure TTextMatrixReader.SetNextRow(const Row: Integer);
+begin
+  if Row > Size then SetSize(Row);
+  if Row > NextRow then NextCol := -1;
+  if Row >= NextRow then NextRow := Row else
+  raise Exception.Create('Invalid sorting at line ' + LineCount.ToString);
+end;
+
+Procedure TTextMatrixReader.SetNextColumn(const Column: Integer);
+begin
+  if Column > Size then SetSize(Column);
+  if Column > NextCol then NextCol := Column else
+  raise Exception.Create('Invalid sorting at line ' + LineCount.ToString);
+end;
+
+Procedure TTextMatrixReader.ParseLine;
+begin
+  NValues := Parser.Count-2;
+  SetNextRow(Parser.Int[0]);
+  SetNextColumn(Parser[1]);
+  Values := Parser.ToFloatArray(TextFormatSettings,2,NValues);
 end;
 
 Procedure TTextMatrixReader.Proceed;
@@ -95,30 +133,25 @@ begin
   begin
     Inc(LineCount);
     Parser.ReadLine(StreamReader);
-    if Parser.Count > 0 then
-    begin
-      if Parser.Count > 2 then
-      begin
-        NValues := Parser.Count-2;
-        var Next := Parser.Int[0];
-        if Next > Size then SetSize(Next);
-        if Next > NextRow then NextCol := -1;
-        if Next >= NextRow then
-        begin
-          NextRow := Next;
-          Next := Parser[1];
-          if Next > Size then SetSize(Next);
-          if Next > NextCol then
-          begin
-            NextCol := Next;
-            Values := Parser.ToFloatArray(TextFormatSettings,2,NValues);
-          end else raise Exception.Create('Invalid sorting at line ' + LineCount.ToString);
-        end else raise Exception.Create('Invalid sorting at line ' + LineCount.ToString);
-      end else raise Exception.Create('Invalid number of columns at line ' + LineCount.ToString);
-    end else
-    if StreamReader.EndOfStream then NValues := 0 else
+    if Parser.Count > 2 then ParseLine else
+    if (Parser.Count = 0) and StreamReader.EndOfStream then NValues := 0 else
     raise Exception.Create('Invalid number of columns at line ' + LineCount.ToString);
   end else NValues := 0;
+end;
+
+Procedure TTextMatrixReader.NextLine;
+// Proceeds to the next line and checks its number of values
+begin
+  Proceed;
+  if (NValues <> 0) and (NValues <> Count) then
+  raise Exception.Create('Invalid number of columns at line ' + LineCount.ToString);
+end;
+
+Procedure TTextMatrixReader.ZeroizeColumns(const Rows: TCustomMatrixRows; const FirstCol,LastCol: Integer);
+begin
+  for var Col := FirstCol to LastCol do
+  for var Matrix := 0 to Count-1 do
+  Rows[Matrix,Col] := 0;
 end;
 
 Procedure TTextMatrixReader.Read(const CurrentRow: Integer; const Rows: TCustomMatrixRows);
@@ -129,24 +162,15 @@ begin
     if NextRow = CurrentRow+1 then
     begin
       // Zeroize skipped matrix cells
-      if LastCol < NextCol-2 then
-      for var Matrix := 0 to Count-1 do
-      for var Col := LastCol+1 to NextCol-2 do
-      Rows[Matrix,Col] := 0;
+      ZeroizeColumns(Rows,LastCol+1,NextCol-2);
       // Set matrix cells current line
       for var Matrix := 0 to Count-1 do Rows[Matrix,NextCol-1] := Values[Matrix];
       LastCol := NextCol-1;
     end;
-    // Proceed to next line
-    Proceed;
-    if (NValues <> 0) and (NValues <> Count) then
-    raise Exception.Create('Invalid number of columns at line ' + LineCount.ToString);
+    NextLine;
   end;
   // Zeroize skipped matrix cells
-  if Size > 0 then
-  for var Col := LastCol+1 to Size-1 do
-  for var Matrix := 0 to Count-1 do
-  Rows[Matrix,Col] := 0;
+  ZeroizeColumns(Rows,LastCol+1,Size-1);
 end;
 
 Destructor TTextMatrixReader.Destroy;

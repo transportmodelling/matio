@@ -36,6 +36,10 @@ Type
       StreamWriter: TStreamWriter;
     Class Procedure SetRowLabel(RowLabel: String); static;
     Class Procedure SetColumnLabel(ColumnLabel: String); static;
+    Procedure CreateStreamWriter(const Settings: TTextMatrixWriterSettings);
+    Procedure SetFloatFormat(const Decimals: Integer);
+    Procedure WriteHeader(const MatrixLabels: array of String);
+    Function ColumnCells(const Rows: TVirtualMatrixRows; const Column: Integer; out Cells: String): Boolean;
   strict protected
     Procedure Write(const CurrentRow: Integer; const Rows: TVirtualMatrixRows); override;
   public
@@ -108,7 +112,16 @@ Constructor TTextMatrixWriter.Create(const FileName: String;
                                      const Settings: TTextMatrixWriterSettings);
 begin
   inherited Create(FileName,Length(MatrixLabels),Size);
-  // Create writer
+  CreateStreamWriter(Settings);
+  TextFormatSettings.DecimalSeparator := Settings.FormatSettings.DecimalSeparator;
+  TextFormatSettings.ThousandSeparator := Settings.FormatSettings.ThousandSeparator;
+  Delim := Delimiters[Settings.Delimiter];
+  SetFloatFormat(Settings.Decimals);
+  if Settings.Header then WriteHeader(MatrixLabels);
+end;
+
+Procedure TTextMatrixWriter.CreateStreamWriter(const Settings: TTextMatrixWriterSettings);
+begin
   if Settings.Encoding <> nil then
     StreamWriter := TStreamWriter.Create(FileStream,Settings.Encoding,BufferSize)
   else
@@ -116,44 +129,48 @@ begin
   if not Settings.WriteByteOrderMark then FileStream.Size := 0;
   // The preamble has reached the stream, so the writer can buffer from here on
   StreamWriter.AutoFlush := false;
-  // Set format settings
-  TextFormatSettings.DecimalSeparator := Settings.FormatSettings.DecimalSeparator;
-  TextFormatSettings.ThousandSeparator := Settings.FormatSettings.ThousandSeparator;
-  // Set delimiter
-  Delim := Delimiters[Settings.Delimiter];
-  // Set float format
+end;
+
+Procedure TTextMatrixWriter.SetFloatFormat(const Decimals: Integer);
+begin
   FloatFormat := '0';
-  if Settings.Decimals > 0 then
+  if Decimals > 0 then
   begin
     FloatFormat := FloatFormat + '.';
-    for var Decimal := 1 to Settings.Decimals do FloatFormat := FloatFormat + '#';
+    for var Decimal := 1 to Decimals do FloatFormat := FloatFormat + '#';
   end;
-  // Write header
-  if Settings.Header then
+end;
+
+Procedure TTextMatrixWriter.WriteHeader(const MatrixLabels: array of String);
+begin
+  StreamWriter.Write(RowLabel);
+  StreamWriter.Write(Delim+ColumnLabel);
+  for var Matrix := low(MatrixLabels) to high(MatrixLabels) do StreamWriter.Write(Delim+MatrixLabels[Matrix]);
+  StreamWriter.WriteLine;
+end;
+
+Function TTextMatrixWriter.ColumnCells(const Rows: TVirtualMatrixRows; const Column: Integer; out Cells: String): Boolean;
+// Returns whether the column holds a value other than zero
+begin
+  Result := false;
+  Cells := '';
+  for var Matrix := 0 to Count-1 do
   begin
-    StreamWriter.Write(RowLabel);
-    StreamWriter.Write(Delim+ColumnLabel);
-    for var Matrix := low(MatrixLabels) to high(MatrixLabels) do StreamWriter.Write(Delim+MatrixLabels[Matrix]);
-    StreamWriter.WriteLine;
+    if Rows[Matrix,Column] <> 0.0 then
+    begin
+      Result := true;
+      Cells := Cells + Delim + FormatFloat(FloatFormat,Rows[Matrix,Column],TextFormatSettings);
+    end else Cells := Cells + Delim + '0';
   end;
 end;
 
 Procedure TTextMatrixWriter.Write(const CurrentRow: Integer; const Rows: TVirtualMatrixRows);
+Var
+  Cells: String;
 begin
   for var Column := 0 to Size-1 do
-  begin
-    var Line := '';
-    var Empty := true;
-    for var Matrix := 0 to Count-1 do
-    begin
-      if Rows[Matrix,Column] <> 0.0 then
-      begin
-        Empty := false;
-        Line := Line + Delim + FormatFloat(FloatFormat,Rows[Matrix,Column],TextFormatSettings);
-      end else Line := Line + Delim + '0';
-    end;
-    if not Empty then StreamWriter.WriteLine(IntToStr(CurrentRow+1)+Delim+IntToStr(Column+1)+Line);
-  end;
+  if ColumnCells(Rows,Column,Cells) then
+  StreamWriter.WriteLine(IntToStr(CurrentRow+1)+Delim+IntToStr(Column+1)+Cells);
 end;
 
 Destructor TTextMatrixWriter.Destroy;
