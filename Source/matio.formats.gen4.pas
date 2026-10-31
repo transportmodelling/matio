@@ -12,133 +12,66 @@ interface
 ////////////////////////////////////////////////////////////////////////////////
 
 Uses
-  SysUtils, Types, KeyVal, ArrBld, matio, matio.formats, matio.gen4,
+  SysUtils, KeyVal, ArrBld, matio, matio.formats, matio.gen4,
   matio.reader, matio.reader.gen4, matio.writer, matio.writer.gen4;
 
 Type
   T4GMatrixReaderFormat = Class(TMatrixReaderFormat)
   public
-    Function Format: String; override;
-    Function FormatName: String; override;
+    Constructor Create;
     Function HasFormat(const Header: TBytes): Boolean; override;
-  public
     Function CreateReader(const [ref] Config: TKeyValuePairs): TMatrixReader; override;
   end;
 
-  T4GMatrixWriterFormat = Class(TMatrixWriterFormat)
+  T4GMatrixWriterFormat = Class(TCustomMatrixWriterFormat)
   private
     Const
       PrecisionProperty = 'prec';
       CompressionProperty = 'compress';
       CompressionOptions: array[T4GCompression] of String = ('none','gzip');
   strict protected
-    Procedure AppendFormatProperties(var Config: TKeyValuePairs); override;
+    Function NewWriter(const [ref] Config: TKeyValuePairs; const NewFile: TNewMatrixFile): TMatrixWriter; override;
   public
-    Function Format: String; override;
-    Function FormatName: String; override;
-    Function PropertyLabel(const PropertyKey: string): String; override;
-    Function PropertyPickList(const PropertyKey: string; out PickList: TStringDynArray): Boolean; override;
-  public
-    Function CreateWriter(const [ref] Config: TKeyValuePairs;
-                          const FileLabel: string;
-                          const MatrixLabels: array of String;
-                          const Size: Integer): TMatrixWriter; overload; override;
+    Constructor Create;
   end;
 
 ////////////////////////////////////////////////////////////////////////////////
 implementation
 ////////////////////////////////////////////////////////////////////////////////
 
-Function T4GMatrixReaderFormat.Format: String;
+Constructor T4GMatrixReaderFormat.Create;
 begin
-  Result := '4g';
-end;
-
-Function T4GMatrixReaderFormat.FormatName: String;
-begin
-  Result := '4G';
+  inherited Create('4g','4G');
 end;
 
 Function T4GMatrixReaderFormat.HasFormat(const Header: TBytes): Boolean;
 begin
-  if Length(Header) >= 4 then
-    if TEncoding.ASCII.GetString(Copy(Header,0,2)) = '4G' then
-      if (Header[2] = 20) and (Header[3] = 1) then
-        Result := true
-      else
-        Result := false
-    else
-      Result := false
-  else
-    Result := false;
+  Result := (Length(Header) >= 4) and (TEncoding.ASCII.GetString(Copy(Header,0,2)) = '4G')
+            and (Header[2] = 20) and (Header[3] = 1);
 end;
 
 Function T4GMatrixReaderFormat.CreateReader(const [ref] Config: TKeyValuePairs): TMatrixReader;
 begin
-  if SameText(Config.Str(FormatProperty),Format) then
-    Result := T4GMatrixReader.Create(Config.Path(FileProperty))
-  else
-    raise Exception.Create('Invalid format-property');
+  CheckFormat(Config);
+  Result := T4GMatrixReader.Create(Config.Path(FileProperty));
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
 
-Function T4GMatrixWriterFormat.Format: String;
+Constructor T4GMatrixWriterFormat.Create;
 begin
-  Result := '4g';
+  inherited Create('4g','4G');
+  AddProperty(PrecisionProperty,PrecisionLabels[ftFloat32],'Precision',TStringArrayBuilder.Create(PrecisionLabels));
+  AddProperty(CompressionProperty,CompressionOptions[cpGZip],'Compression',TStringArrayBuilder.Create(CompressionOptions));
 end;
 
-Function T4GMatrixWriterFormat.FormatName: String;
+Function T4GMatrixWriterFormat.NewWriter(const [ref] Config: TKeyValuePairs; const NewFile: TNewMatrixFile): TMatrixWriter;
 begin
-  Result := '4G';
-end;
-
-Procedure T4GMatrixWriterFormat.AppendFormatProperties(var Config: TKeyValuePairs);
-begin
-  Config.Append(PrecisionProperty,PrecisionLabels[ftFloat32]);
-  Config.Append(CompressionProperty,CompressionOptions[cpGZip]);
-end;
-
-Function T4GMatrixWriterFormat.PropertyLabel(const PropertyKey: string): String;
-begin
-  Result := inherited PropertyLabel(PropertyKey);
-  if Result = '' then
-  if SameText(PropertyKey,PrecisionProperty) then
-    Result := 'Precision'
-  else if SameText(PropertyKey,CompressionProperty) then
-    Result := 'Compression';
-end;
-
-Function T4GMatrixWriterFormat.PropertyPickList(const PropertyKey: string;
-                                                out PickList: TStringDynArray): Boolean;
-begin
-  if not inherited PropertyPickList(PropertyKey,PickList) then
-  if SameText(PropertyKey,PrecisionProperty) then
-  begin
-    Result := true;
-    PickList := TStringArrayBuilder.Create(PrecisionLabels);
-  end else
-  if SameText(PropertyKey,CompressionProperty) then
-  begin
-    Result := true;
-    PickList := TStringArrayBuilder.Create(CompressionOptions);
-  end else
-    Result := false;
-end;
-
-Function T4GMatrixWriterFormat.CreateWriter(const [ref] Config: TKeyValuePairs;
-                                            const FileLabel: string;
-                                            const MatrixLabels: array of String;
-                                            const Size: Integer): TMatrixWriter;
-begin
-  if SameText(Config.Str(FormatProperty),Format) then
-  begin
-    var ExtendedConfig := ExtendProperties(Config);
-    var Precision := TFloatType(OptionIndex(ExtendedConfig.Str(PrecisionProperty),PrecisionLabels,'precision'));
-    var Compression := T4GCompression(OptionIndex(ExtendedConfig.Str(CompressionProperty),CompressionOptions,'compression'));
-    Result := T4GMatrixWriter.Create(ExtendedConfig.Path(FileProperty),FileLabel,MatrixLabels,Size,Precision,Compression);
-  end else
-    raise Exception.Create('Invalid format-property');
+  var ExtendedConfig := ExtendProperties(Config);
+  var Precision := TFloatType(OptionIndex(ExtendedConfig.Str(PrecisionProperty),PrecisionLabels,'precision'));
+  var Compression := T4GCompression(OptionIndex(ExtendedConfig.Str(CompressionProperty),CompressionOptions,'compression'));
+  Result := T4GMatrixWriter.Create(ExtendedConfig.Path(FileProperty),NewFile.FileLabel,NewFile.MatrixLabels,
+                                   NewFile.Size,Precision,Compression);
 end;
 
 end.

@@ -12,25 +12,39 @@ interface
 ////////////////////////////////////////////////////////////////////////////////
 
 Uses
-  SysUtils, Classes, Types, KeyVal, matio, matio.reader, matio.writer;
+  SysUtils, Classes, Types, KeyVal, ArrBld, matio, matio.reader, matio.writer;
 
 Type
   TMatrixFormat = Class
+  // A format names itself and describes its properties in its constructor.
+  // A format with a parameterless constructor overrides Format and FormatName.
+  private
+    Type
+      TFormatProperty = record
+        Key,DefaultValue,Caption: String;
+        PickList: TStringDynArray;
+      end;
+    Var
+      FFormat,FFormatName: String;
+      Properties: TArray<TFormatProperty>;
+    Function FindProperty(const PropertyKey: string; out Found: TFormatProperty): Boolean;
+    Procedure AppendTidyProperty(const [ref] Config: TKeyValuePairs; const Default: TKeyValuePair; var Tidied: TKeyValuePairs);
   strict protected
-    Class Function OptionIndex(const PropertyValue: String; const Options: array of String;
-                               const PropertyName: String; const MinIndex: Integer = 0): Integer;
-    Class Function BoolPropertyValue(const PropertyValue,PropertyName: String): Boolean;
+    Constructor Create(const Format,FormatName: String); overload;
+    Procedure AddProperty(const Key,DefaultValue,Caption: String; const PickList: TStringDynArray = nil);
+    Function OptionIndex(const PropertyValue: String; const Options: array of String;
+                         const PropertyName: String; const MinIndex: Integer = 0): Integer;
+    Function BoolPropertyValue(const PropertyValue,PropertyName: String): Boolean;
     Function ExtendProperties(const [ref] Config: TKeyValuePairs): TKeyValuePairs;
-  strict protected
-    Procedure AppendFormatProperties(var Config: TKeyValuePairs); virtual;
+    Procedure CheckFormat(const [ref] Config: TKeyValuePairs);
   public
     Const
       FileProperty = 'file';
       FormatProperty = 'format';
     Class Function FileName(const [ref] Config: TKeyValuePairs; Expand: Boolean = true): String;
   public
-    Function Format: String; virtual; abstract;
-    Function FormatName: String; virtual; abstract;
+    Function Format: String; virtual;
+    Function FormatName: String; virtual;
     Function Available: Boolean; virtual;
     Function FormatProperties: TKeyValuePairs;
     Function PropertyLabel(const PropertyKey: string): String; virtual;
@@ -57,6 +71,24 @@ Type
                           const FileLabel: string;
                           const MatrixLabels: array of String;
                           const Size: Integer): TMatrixWriter; virtual; abstract;
+  end;
+
+  TNewMatrixFile = record
+    FileLabel: String;
+    MatrixLabels: TArray<String>;
+    Size: Integer;
+  end;
+
+  TCustomMatrixWriterFormat = Class(TMatrixWriterFormat)
+  // Checks the format property of the configuration and gathers what describes
+  // the new file, so that a format only has to create its writer.
+  strict protected
+    Function NewWriter(const [ref] Config: TKeyValuePairs; const NewFile: TNewMatrixFile): TMatrixWriter; virtual; abstract;
+  public
+    Function CreateWriter(const [ref] Config: TKeyValuePairs;
+                          const FileLabel: string;
+                          const MatrixLabels: array of String;
+                          const Size: Integer): TMatrixWriter; override;
   end;
 
   TMatrixFormats = record
@@ -119,23 +151,6 @@ Uses
   matio.formats.text, matio.formats.gen4, matio.formats.minutp, matio.formats.visum,
   matio.formats.omx, matio.formats.cube;
 
-Class Function TMatrixFormat.OptionIndex(const PropertyValue: String; const Options: array of String;
-                                         const PropertyName: String; const MinIndex: Integer = 0): Integer;
-// Returns the index of the option matching the property value, raising when
-// there is no match or the option is not allowed for the property
-begin
-  for var Option := MinIndex to high(Options) do
-  if SameText(Options[Option],PropertyValue) then Exit(Option);
-  raise Exception.Create('Invalid ' + PropertyName);
-end;
-
-Class Function TMatrixFormat.BoolPropertyValue(const PropertyValue,PropertyName: String): Boolean;
-begin
-  Result := OptionIndex(PropertyValue,
-                        [False.ToString(TUseBoolStrs.True),True.ToString(TUseBoolStrs.True)],
-                        PropertyName) = 1;
-end;
-
 Class Function TMatrixFormat.FileName(const [ref] Config: TKeyValuePairs; Expand: Boolean = true): String;
 begin
   if Expand then
@@ -144,8 +159,60 @@ begin
     Result := Config.Str(FileProperty);
 end;
 
-Procedure TMatrixFormat.AppendFormatProperties(var Config: TKeyValuePairs);
+Constructor TMatrixFormat.Create(const Format,FormatName: String);
 begin
+  inherited Create;
+  FFormat := Format;
+  FFormatName := FormatName;
+end;
+
+Function TMatrixFormat.FindProperty(const PropertyKey: string; out Found: TFormatProperty): Boolean;
+begin
+  Result := false;
+  for var Prop := low(Properties) to high(Properties) do
+  if SameText(Properties[Prop].Key,PropertyKey) then
+  begin
+    Found := Properties[Prop];
+    Exit(true);
+  end;
+end;
+
+Procedure TMatrixFormat.AppendTidyProperty(const [ref] Config: TKeyValuePairs; const Default: TKeyValuePair; var Tidied: TKeyValuePairs);
+// The file and format properties are always kept, other properties when they differ from their default
+Var
+  Value: String;
+begin
+  if SameText(Default.Key,FileProperty) or SameText(Default.Key,FormatProperty) then
+    Tidied.Append(Default.Key,Config.Str(Default.Key))
+  else
+    if Config.Contains(Default.Key,Value) and not SameText(Default.Value,Value) then Tidied.Append(Default.Key,Value);
+end;
+
+Procedure TMatrixFormat.AddProperty(const Key,DefaultValue,Caption: String; const PickList: TStringDynArray = nil);
+begin
+  var Index := Length(Properties);
+  SetLength(Properties,Index+1);
+  Properties[Index].Key := Key;
+  Properties[Index].DefaultValue := DefaultValue;
+  Properties[Index].Caption := Caption;
+  Properties[Index].PickList := PickList;
+end;
+
+Function TMatrixFormat.OptionIndex(const PropertyValue: String; const Options: array of String;
+                                   const PropertyName: String; const MinIndex: Integer = 0): Integer;
+// Returns the index of the option matching the property value, raising when
+// there is no match or the option is not allowed for the property
+begin
+  for var Option := MinIndex to high(Options) do
+  if SameText(Options[Option],PropertyValue) then Exit(Option);
+  raise Exception.Create('Invalid ' + PropertyName);
+end;
+
+Function TMatrixFormat.BoolPropertyValue(const PropertyValue,PropertyName: String): Boolean;
+begin
+  Result := OptionIndex(PropertyValue,
+                        [False.ToString(TUseBoolStrs.True),True.ToString(TUseBoolStrs.True)],
+                        PropertyName) = 1;
 end;
 
 Function TMatrixFormat.ExtendProperties(const [ref] Config: TKeyValuePairs): TKeyValuePairs;
@@ -160,6 +227,21 @@ begin
   end;
 end;
 
+Procedure TMatrixFormat.CheckFormat(const [ref] Config: TKeyValuePairs);
+begin
+  if not SameText(Config.Str(FormatProperty),Format) then raise Exception.Create('Invalid format-property');
+end;
+
+Function TMatrixFormat.Format: String;
+begin
+  Result := FFormat;
+end;
+
+Function TMatrixFormat.FormatName: String;
+begin
+  Result := FFormatName;
+end;
+
 Function TMatrixFormat.Available: Boolean;
 begin
   Result := true;
@@ -172,53 +254,49 @@ begin
   Result.Clear;
   Result.Append(FileProperty,'');
   Result.Append(FormatProperty,Format);
-  AppendFormatProperties(Result);
+  for var Prop := low(Properties) to high(Properties) do
+  Result.Append(Properties[Prop].Key,Properties[Prop].DefaultValue);
 end;
 
 Function TMatrixFormat.PropertyLabel(const PropertyKey: string): String;
 // Returns the display label of a format property, or an empty string
 // when the property is unknown to the format
+Var
+  Found: TFormatProperty;
 begin
   if SameText(PropertyKey,FileProperty) then
     Result := 'File'
   else if SameText(PropertyKey,FormatProperty) then
     Result := 'Format'
+  else if FindProperty(PropertyKey,Found) then
+    Result := Found.Caption
   else
     Result := '';
 end;
 
 Function TMatrixFormat.PropertyPickList(const PropertyKey: string; out PickList: TStringDynArray): Boolean;
+Var
+  Found: TFormatProperty;
 begin
   if PropertyKey = FormatProperty then
   begin
     Result := true;
     PickList := [Format];
   end else
-    Result := false;
+  begin
+    Result := FindProperty(PropertyKey,Found) and (Found.PickList <> nil);
+    if Result then PickList := Copy(Found.PickList);
+  end;
 end;
 
 Function TMatrixFormat.TidyProperties(const [ref] Config: TKeyValuePairs): TKeyValuePairs;
-Var
-  Value: String;
 begin
   // Result is a managed type and may alias the caller's destination variable,
   // so it must be cleared before appending
   Result.Clear;
-  if SameText(Config.Str(FormatProperty),Format) then
-  begin
-    var Defaults := FormatProperties;
-    for var Prop := 0 to Defaults.Count-1 do
-    begin
-      var Name := Defaults[Prop].Key;
-      if SameText(Name,FileProperty) or SameText(Name,FormatProperty) then
-        Result.Append(Name,Config.Str(Name))
-      else
-        if Config.Contains(Name,Value) then
-        if not SameText(Defaults[Prop].Value,Value) then
-        Result.Append(Name,Value)
-    end;
-  end else
-    raise Exception.Create('Invalid format-property');
+  CheckFormat(Config);
+  var Defaults := FormatProperties;
+  for var Prop := 0 to Defaults.Count-1 do AppendTidyProperty(Config,Defaults[Prop],Result);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -261,6 +339,22 @@ begin
     Result := TMaskedMatrixReader.Create(Reader,Selection)
   else
     Result := nil;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+
+Function TCustomMatrixWriterFormat.CreateWriter(const [ref] Config: TKeyValuePairs;
+                                                const FileLabel: string;
+                                                const MatrixLabels: array of String;
+                                                const Size: Integer): TMatrixWriter;
+Var
+  NewFile: TNewMatrixFile;
+begin
+  CheckFormat(Config);
+  NewFile.FileLabel := FileLabel;
+  NewFile.MatrixLabels := TStringArrayBuilder.Create(MatrixLabels);
+  NewFile.Size := Size;
+  Result := NewWriter(Config,NewFile);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

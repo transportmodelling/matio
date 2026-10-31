@@ -15,6 +15,8 @@ Uses
   SysUtils, Types, ArrBld, matio, matio.writer, matio.hdf5;
 
 Type
+  THdf5MatrixWriterClass = Class of THdf5MatrixWriter;
+
   THdf5MatrixWriter = Class(TMatrixWriter)
   private
     Var

@@ -15,6 +15,8 @@ Uses
   SysUtils, Types, ArrBld, matio, matio.row, matio.reader, matio.hdf5;
 
 Type
+  THdf5MatrixReaderClass = Class of THdf5MatrixReader;
+
   THdf5MatrixReader = Class(TMatrixReader)
   private
     Var

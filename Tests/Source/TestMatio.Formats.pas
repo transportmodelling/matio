@@ -63,6 +63,8 @@ type
     procedure PropertyLabel_UnknownIsEmpty;
     [Test]
     procedure PropertyLabel_AllFormatPropertiesLabelled;
+    [Test]
+    Procedure PropertyPickList_FormatKeyListsTheFormat;
     // Look up by file (extension / header bytes)
     [Test]
     procedure ReaderFormatByFile_4g_DetectsHeader;
@@ -285,6 +287,18 @@ end;
 procedure TMatrixFormatsTests.PropertyLabel_Mtp_Precision;
 begin
   Assert.AreEqual('Precision', MatrixFormats.ReaderFormat('mtp').PropertyLabel('prec'));
+end;
+
+Procedure TMatrixFormatsTests.PropertyPickList_FormatKeyListsTheFormat;
+Var
+  PickList: TStringDynArray;
+begin
+  var Formats := MatrixFormats.RegisteredWriterFormats;
+  for var Index := low(Formats) to high(Formats) do
+  begin
+    Assert.IsTrue(MatrixFormats.WriterFormat(Formats[Index]).PropertyPickList(TMatrixFormat.FormatProperty,PickList));
+    Assert.AreEqual(Formats[Index],PickList[0]);
+  end;
 end;
 
 procedure TMatrixFormatsTests.PropertyLabel_File;

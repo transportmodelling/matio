@@ -15,28 +15,18 @@ Uses
   SysUtils, KeyVal, matio, matio.formats, matio.reader, matio.reader.minutp, matio.writer, matio.writer.minutp;
 
 Type
-  TMinutpMatrixReaderFormat = Class(TMatrixReaderFormat)
+  TMinutpMatrixWriterFormat = Class(TCustomMatrixWriterFormat)
   strict protected
-    Procedure AppendFormatProperties(var Config: TKeyValuePairs); override;
+    Function NewWriter(const [ref] Config: TKeyValuePairs; const NewFile: TNewMatrixFile): TMatrixWriter; override;
   public
-    Function Format: String; override;
-    Function FormatName: String; override;
-    Function PropertyLabel(const PropertyKey: string): String; override;
-    Function HasFormat(const Header: TBytes): Boolean; override;
-    Function CreateReader(const [ref] Config: TKeyValuePairs): TMatrixReader; override;
+    Constructor Create;
   end;
 
-  TMinutpMatrixWriterFormat = Class(TMatrixWriterFormat)
-  strict protected
-    Procedure AppendFormatProperties(var Config: TKeyValuePairs); override;
+  TMinutpMatrixReaderFormat = Class(TMatrixReaderFormat)
   public
-    Function Format: String; override;
-    Function FormatName: String; override;
-    Function PropertyLabel(const PropertyKey: string): String; override;
-    Function CreateWriter(const [ref] Config: TKeyValuePairs;
-                          const FileLabel: string;
-                          const MatrixLabels: array of String;
-                          const Size: Integer): TMatrixWriter; override;
+    Constructor Create;
+    Function HasFormat(const Header: TBytes): Boolean; override;
+    Function CreateReader(const [ref] Config: TKeyValuePairs): TMatrixReader; override;
   end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -47,87 +37,37 @@ Const
   PrecisionProperty = 'prec';
   PrecisionLabel = 'Precision';
 
-Function TMinutpMatrixReaderFormat.Format: String;
+Constructor TMinutpMatrixWriterFormat.Create;
 begin
-  Result := 'mtp';
+  inherited Create('mtp','Minutp');
+  AddProperty(PrecisionProperty,'',PrecisionLabel);
 end;
 
-Function TMinutpMatrixReaderFormat.FormatName: String;
+Function TMinutpMatrixWriterFormat.NewWriter(const [ref] Config: TKeyValuePairs; const NewFile: TNewMatrixFile): TMatrixWriter;
 begin
-  Result := 'Minutp';
-end;
-
-Function TMinutpMatrixReaderFormat.PropertyLabel(const PropertyKey: string): String;
-begin
-  Result := inherited PropertyLabel(PropertyKey);
-  if (Result = '') and SameText(PropertyKey,PrecisionProperty) then Result := PrecisionLabel;
-end;
-
-Function TMinutpMatrixReaderFormat.HasFormat(const Header: TBytes): Boolean;
-begin
-  if Length(Header) >= 74 then
-  begin
-    if TEncoding.ASCII.GetString(Copy(Header,66,7)) = ' MATRIX' then
-      if Header[73] = 45 then
-        Result := true
-      else
-        Result := false
-    else
-      Result := false;
-  end else
-    Result := false;
-end;
-
-Procedure TMinutpMatrixReaderFormat.AppendFormatProperties(var Config: TKeyValuePairs);
-begin
-  Config.Append(PrecisionProperty,'0');
-end;
-
-Function TMinutpMatrixReaderFormat.CreateReader(const [ref] Config: TKeyValuePairs): TMatrixReader;
-begin
-  if SameText(Config.Str(FormatProperty),Format) then
-  begin
-    var ExtendedConfig := ExtendProperties(Config);
-    Result := TMinutpMatrixReader.Create(ExtendedConfig.Path(FileProperty),ExtendedConfig.Int(PrecisionProperty));
-  end else
-    raise Exception.Create('Invalid format-property');
+  var ExtendedConfig := ExtendProperties(Config);
+  Result := TMinutpMatrixWriter.Create(ExtendedConfig.Path(FileProperty),NewFile.FileLabel,Length(NewFile.MatrixLabels),
+                                       NewFile.Size,ExtendedConfig.Int(PrecisionProperty));
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
 
-Function TMinutpMatrixWriterFormat.Format: String;
+Constructor TMinutpMatrixReaderFormat.Create;
 begin
-  Result := 'mtp';
+  inherited Create('mtp','Minutp');
+  AddProperty(PrecisionProperty,'0',PrecisionLabel);
 end;
 
-Function TMinutpMatrixWriterFormat.FormatName: String;
+Function TMinutpMatrixReaderFormat.HasFormat(const Header: TBytes): Boolean;
 begin
-  Result := 'Minutp';
+  Result := (Length(Header) >= 74) and (TEncoding.ASCII.GetString(Copy(Header,66,7)) = ' MATRIX') and (Header[73] = 45);
 end;
 
-Function TMinutpMatrixWriterFormat.PropertyLabel(const PropertyKey: string): String;
+Function TMinutpMatrixReaderFormat.CreateReader(const [ref] Config: TKeyValuePairs): TMatrixReader;
 begin
-  Result := inherited PropertyLabel(PropertyKey);
-  if (Result = '') and SameText(PropertyKey,PrecisionProperty) then Result := PrecisionLabel;
-end;
-
-Procedure TMinutpMatrixWriterFormat.AppendFormatProperties(var Config: TKeyValuePairs);
-begin
-  Config.Append(PrecisionProperty,'');
-end;
-
-Function TMinutpMatrixWriterFormat.CreateWriter(const [ref] Config: TKeyValuePairs;
-                                                const FileLabel: string;
-                                                const MatrixLabels: array of String;
-                                                const Size: Integer): TMatrixWriter;
-begin
-  if SameText(Config.Str(FormatProperty),Format) then
-  begin
-    var ExtendedConfig := ExtendProperties(Config);
-    Result := TMinutpMatrixWriter.Create(ExtendedConfig.Path(FileProperty),FileLabel,Length(MatrixLabels),
-                                         Size,ExtendedConfig.Int(PrecisionProperty));
-  end else
-    raise Exception.Create('Invalid format-property');
+  CheckFormat(Config);
+  var ExtendedConfig := ExtendProperties(Config);
+  Result := TMinutpMatrixReader.Create(ExtendedConfig.Path(FileProperty),ExtendedConfig.Int(PrecisionProperty));
 end;
 
 end.

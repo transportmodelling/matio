@@ -17,49 +17,31 @@ Uses
 Type
   TVisumMatrixReaderFormat = Class(TMatrixReaderFormat)
   public
-    Function Format: String; override;
-    Function FormatName: String; override;
-    Function HasFormat(const Header: TBytes): Boolean; override;
+    Constructor Create;
     Function CreateReader(const [ref] Config: TKeyValuePairs): TMatrixReader; override;
+    Function HasFormat(const Header: TBytes): Boolean; override;
   end;
 
 ////////////////////////////////////////////////////////////////////////////////
 implementation
 ////////////////////////////////////////////////////////////////////////////////
 
-Function TVisumMatrixReaderFormat.Format: String;
+Constructor TVisumMatrixReaderFormat.Create;
 begin
-  Result := 'visum';
-end;
-
-Function TVisumMatrixReaderFormat.FormatName: String;
-begin
-  Result := 'Visum';
-end;
-
-Function TVisumMatrixReaderFormat.HasFormat(const Header: TBytes): Boolean;
-begin
-  Result := false;
-  if Length(Header) >= 5 then
-  begin
-    if Header[0] = 3 then
-    if Header[1] = 0 then
-    if ANSIChar(Header[2]) = '$' then
-    if ANSIChar(Header[3]) = 'B' then
-    if ANSIChar(Header[4]) in ['I','K','L'] then
-    Result := true;
-  end else
-    Result := false;
+  inherited Create('visum','Visum');
 end;
 
 Function TVisumMatrixReaderFormat.CreateReader(const [ref] Config: TKeyValuePairs): TMatrixReader;
 begin
-  if SameText(Config.Str(FormatProperty),Format) then
-  begin
-    var ExtendedConfig := ExtendProperties(Config);
-    Result := TVisumMatrixReader.Create(ExtendedConfig.Path(FileProperty));
-  end else
-    raise Exception.Create('Invalid format-property');
+  CheckFormat(Config);
+  var ExtendedConfig := ExtendProperties(Config);
+  Result := TVisumMatrixReader.Create(ExtendedConfig.Path(FileProperty));
+end;
+
+Function TVisumMatrixReaderFormat.HasFormat(const Header: TBytes): Boolean;
+begin
+  Result := (Length(Header) >= 5) and (Header[0] = 3) and (Header[1] = 0)
+            and (TEncoding.ASCII.GetString(Copy(Header,2,2)) = '$B') and (ANSIChar(Header[4]) in ['I','K','L']);
 end;
 
 end.
