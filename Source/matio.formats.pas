@@ -100,6 +100,12 @@ Type
       ReaderFormats: TArray<TMatrixReaderFormat>;
       WriterFormats: TArray<TMatrixWriterFormat>;
     Function IndexLabels(Count: Integer): TArray<String>;
+    Function FindReaderFormat(const Matches: TFunc<TMatrixReaderFormat,Boolean>): TMatrixReaderFormat;
+    Function NamedReaderFormat(const Format: string): TMatrixReaderFormat;
+    Function NamedWriterFormat(const Format: string): TMatrixWriterFormat;
+    Function AvailableReaderFormat(const [ref] Config: TKeyValuePairs): TMatrixReaderFormat;
+    Function AvailableWriterFormat(const [ref] Config: TKeyValuePairs): TMatrixWriterFormat;
+    Function FileHeader(const FileName: TFileName): TBytes;
   public
     Class Operator Finalize (var Formats: TMatrixFormats);
   public
@@ -375,6 +381,52 @@ begin
   for var Index := 0 to Count-1 do Result[Index] := (Index+1).ToString;
 end;
 
+Function TMatrixFormats.FindReaderFormat(const Matches: TFunc<TMatrixReaderFormat,Boolean>): TMatrixReaderFormat;
+// Returns the first registered reader format that matches, or nil
+begin
+  Result := nil;
+  for var Index := low(ReaderFormats) to high(ReaderFormats) do
+  if Matches(ReaderFormats[Index]) then Exit(ReaderFormats[Index]);
+end;
+
+Function TMatrixFormats.NamedReaderFormat(const Format: string): TMatrixReaderFormat;
+begin
+  Result := FindReaderFormat(Function(Candidate: TMatrixReaderFormat): Boolean
+                             begin
+                               Result := SameText(Candidate.Format,Format)
+                             end);
+end;
+
+Function TMatrixFormats.NamedWriterFormat(const Format: string): TMatrixWriterFormat;
+begin
+  Result := nil;
+  for var Index := low(WriterFormats) to high(WriterFormats) do
+  if SameText(WriterFormats[Index].Format,Format) then Exit(WriterFormats[Index]);
+end;
+
+Function TMatrixFormats.AvailableReaderFormat(const [ref] Config: TKeyValuePairs): TMatrixReaderFormat;
+begin
+  Result := NamedReaderFormat(Config.Str(TMatrixFormat.FormatProperty));
+  if (Result <> nil) and not Result.Available then Result := nil;
+end;
+
+Function TMatrixFormats.AvailableWriterFormat(const [ref] Config: TKeyValuePairs): TMatrixWriterFormat;
+begin
+  Result := NamedWriterFormat(Config.Str(TMatrixFormat.FormatProperty));
+  if (Result <> nil) and not Result.Available then Result := nil;
+end;
+
+Function TMatrixFormats.FileHeader(const FileName: TFileName): TBytes;
+begin
+  var FileStream := TFileStream.Create(FileName,fmOpenRead or fmShareDenyWrite);
+  try
+    SetLength(Result,HeaderSize);
+    FileStream.Read(Result,HeaderSize)
+  finally
+    FileStream.Free;
+  end;
+end;
+
 Procedure TMatrixFormats.RegisterFormat(const Format: TMatrixReaderFormat);
 begin
   var Count := Length(ReaderFormats);
@@ -398,42 +450,26 @@ end;
 
 Function TMatrixFormats.ReaderFormat(const Format: string): TMatrixFormat;
 begin
-  Result := nil;
-  for var ReaderFormat := low(ReaderFormats) to high(ReaderFormats) do
-  if SameText(ReaderFormats[ReaderFormat].Format,Format) then
-  Exit(ReaderFormats[ReaderFormat]);
+  Result := NamedReaderFormat(Format);
 end;
 
 Function TMatrixFormats.ReaderFormat(const FileName: TFileName): TMatrixFormat;
-Var
-  Header: TBytes;
+// Determines the file format based on the file extension, then on the file header
 begin
-  Result := nil;
-  // Determine file format based on file extension
   var FileExtension := ExtractFileExt(FileName);
-  for var ReaderFormat := low(ReaderFormats) to high(ReaderFormats) do
-  if ReaderFormats[ReaderFormat].HasFormat(FileExtension) then
-  Exit(ReaderFormats[ReaderFormat]);
-  // Determine file format based on file header
-  if FileExists(FileName) then
-  begin
-    var FileStream := TFileStream.Create(FileName,fmOpenRead or fmShareDenyWrite);
-    try
-      SetLength(Header,HeaderSize);
-      FileStream.Read(Header,HeaderSize)
-    finally
-      FileStream.Free;
-    end;
-    Result := ReaderFormat(Header);
-  end;
+  Result := FindReaderFormat(Function(Candidate: TMatrixReaderFormat): Boolean
+                             begin
+                               Result := Candidate.HasFormat(FileExtension)
+                             end);
+  if (Result = nil) and FileExists(FileName) then Result := ReaderFormat(FileHeader(FileName));
 end;
 
 Function TMatrixFormats.ReaderFormat(const Header: TBytes): TMatrixFormat;
 begin
-  Result := nil;
-  for var ReaderFormat := low(ReaderFormats) to high(ReaderFormats) do
-  if ReaderFormats[ReaderFormat].HasFormat(Header) then
-  Exit(ReaderFormats[ReaderFormat]);
+  Result := FindReaderFormat(Function(Candidate: TMatrixReaderFormat): Boolean
+                             begin
+                               Result := Candidate.HasFormat(Header)
+                             end);
 end;
 
 Function TMatrixFormats.RegisteredWriterFormats: TStringDynArray;
@@ -445,54 +481,36 @@ end;
 
 Function TMatrixFormats.WriterFormat(const Format: string): TMatrixFormat;
 begin
-  Result := nil;
-  for var WriterFormat := low(WriterFormats) to high(WriterFormats) do
-  if SameText(WriterFormats[WriterFormat].Format,Format) then
-  Exit(WriterFormats[WriterFormat]);
+  Result := NamedWriterFormat(Format);
 end;
 
 Function TMatrixFormats.CreateReader(const [ref] Config: TKeyValuePairs; Ordered: Boolean = true): TMatrixReader;
 begin
   Result := nil;
-  var Format := Config.Str(TMatrixFormat.FormatProperty);
-  for var ReaderFormat := low(ReaderFormats) to high(ReaderFormats) do
-  if SameText(ReaderFormats[ReaderFormat].Format,Format) then
-  if ReaderFormats[ReaderFormat].Available then
+  var Format := AvailableReaderFormat(Config);
+  if Format <> nil then
   begin
-    Result := ReaderFormats[ReaderFormat].CreateReader(Config);
+    Result := Format.CreateReader(Config);
     if Ordered and (not Result.Ordered) then
     begin
       FreeAndNil(Result);
       raise Exception.Create('Matrix indices within file undefined');
     end;
-  end else
-    Break;
+  end;
 end;
 
 Function TMatrixFormats.CreateReader(const [ref] Config: TKeyValuePairs;
                                      const Selection: array of Integer): TMatrixReader;
 begin
-  Result := nil;
-  var Format := Config.Str(TMatrixFormat.FormatProperty);
-  for var ReaderFormat := low(ReaderFormats) to high(ReaderFormats) do
-  if SameText(ReaderFormats[ReaderFormat].Format,Format) then
-  if ReaderFormats[ReaderFormat].Available then
-    Exit(ReaderFormats[ReaderFormat].CreateReader(Config,Selection))
-  else
-    Break;
+  var Format := AvailableReaderFormat(Config);
+  if Format <> nil then Result := Format.CreateReader(Config,Selection) else Result := nil;
 end;
 
 Function TMatrixFormats.CreateReader(const [ref] Config: TKeyValuePairs;
                                      const Selection: array of String): TMatrixReader;
 begin
-  Result := nil;
-  var Format := Config.Str(TMatrixFormat.FormatProperty);
-  for var ReaderFormat := low(ReaderFormats) to high(ReaderFormats) do
-  if SameText(ReaderFormats[ReaderFormat].Format,Format) then
-  if ReaderFormats[ReaderFormat].Available then
-    Exit(ReaderFormats[ReaderFormat].CreateReader(Config,Selection))
-  else
-    Break;
+  var Format := AvailableReaderFormat(Config);
+  if Format <> nil then Result := Format.CreateReader(Config,Selection) else Result := nil;
 end;
 
 Function TMatrixFormats.CreateEnumReader(const [ref] Config: TKeyValuePairs; Count,Size: Integer; Ordered: Boolean = true): TMatrixEnumReader;
@@ -516,14 +534,8 @@ Function TMatrixFormats.CreateWriter(const [ref] Config: TKeyValuePairs;
                                      const MatrixLabels: array of String;
                                      const Size: Integer): TMatrixWriter;
 begin
-  Result := nil;
-  var Format := Config.Str(TMatrixFormat.FormatProperty);
-  for var WriterFormat := low(WriterFormats) to high(WriterFormats) do
-  if SameText(WriterFormats[WriterFormat].Format,Format) then
-  if WriterFormats[WriterFormat].Available then
-    Exit(WriterFormats[WriterFormat].CreateWriter(Config,FileLabel,MatrixLabels,Size))
-  else
-    Break;
+  var Format := AvailableWriterFormat(Config);
+  if Format <> nil then Result := Format.CreateWriter(Config,FileLabel,MatrixLabels,Size) else Result := nil;
 end;
 
 Function TMatrixFormats.CreateEnumWriter(const [ref] Config: TKeyValuePairs;
