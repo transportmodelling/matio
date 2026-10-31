@@ -23,6 +23,8 @@ Type
     FMatrixLabels: TArray<String>;
     Function GetMatrixLabels(Mtrx: Integer): String; inline;
     Procedure ReadUsingSetter(NMatrices,RowSize: Integer; const Setter: TMatrixSetter);
+    Procedure ReadCurrentRow(const Rows: TCustomMatrixRows);
+    Procedure ZeroizeCells(const Rows: TCustomMatrixRows; const FirstMatrix,FirstColumn: Integer);
   strict protected
     FOrdered: Boolean; // True if matrices have a stable, well-defined order (index-based selection supported)
     Procedure SetCount(Count: Integer); override;
@@ -52,6 +54,10 @@ Type
   private
     Unmasked: TMatrixReader;
     TargetMatrices: TArray<Integer>;
+    Procedure CopyFileProperties(const Reader: TMatrixReader);
+    Function CheckedIndex(const Reader: TMatrixReader; const Selected: Integer): Integer;
+    Function LabelIndex(const Reader: TMatrixReader; const MatrixLabel: String): Integer;
+    Procedure ExtendTargetMatrices(const Selected: Integer);
     Procedure SelectMatrix(const Reader: TMatrixReader; const Selected: Integer);
   protected
     Procedure Read(const CurrentRow: Integer; const Rows: TCustomMatrixRows); overload; override;
@@ -72,6 +78,9 @@ Type
     // Buffers holding all matrices of the current row
     Rows32: TArray<TFloat32MatrixRow>;
     Rows64: TArray<TFloat64MatrixRow>;
+    Function ReadsMatrices(const RowSize: Integer; const RowType: TFloatType): Boolean;
+    Procedure AllocateRows<T>(var Rows: TArray<TArray<T>>);
+    Procedure TakeRow<T>(var Row: TArray<T>; var Rows: TArray<TArray<T>>);
   public
     Constructor Create(const Reader: TMatrixReader; Count,Size: Integer; OwnsReader: Boolean = true);
     Procedure Read(var Row: TFloat32MatrixRow); overload;
@@ -108,6 +117,23 @@ begin
   end;
 end;
 
+Procedure TMatrixReader.ReadCurrentRow(const Rows: TCustomMatrixRows);
+begin
+  try
+    Read(CurrentRow,Rows);
+  except
+    on E: Exception do
+      raise Exception.Create('Error (' + E.Message + ') reading row ' + (CurrentRow+1).ToString + ' in ' + FileName);
+  end;
+end;
+
+Procedure TMatrixReader.ZeroizeCells(const Rows: TCustomMatrixRows; const FirstMatrix,FirstColumn: Integer);
+begin
+  for var Matrix := FirstMatrix to Rows.Count-1 do
+  for var Column := FirstColumn to Rows.Size-1 do
+  Rows[Matrix,Column] := 0.0;
+end;
+
 Procedure TMatrixReader.SetCount(Count: Integer);
 begin
   inherited SetCount(Count);
@@ -140,20 +166,14 @@ Procedure TMatrixReader.Read(const Row: TFloat32MatrixRow);
 begin
   var Ref := Row;
   ReadUsingSetter(1,Length(Ref),
-    procedure(Matrix,Column: Integer; Value: Float64)
-    begin
-      Ref[Column] := Value
-    end);
+                  Procedure(Matrix,Column: Integer; Value: Float64) begin Ref[Column] := Value end);
 end;
 
 Procedure TMatrixReader.Read(const Row: TFloat64MatrixRow);
 begin
   var Ref := Row;
   ReadUsingSetter(1,Length(Ref),
-    procedure(Matrix,Column: Integer; Value: Float64)
-    begin
-      Ref[Column] := Value
-    end);
+                  Procedure(Matrix,Column: Integer; Value: Float64) begin Ref[Column] := Value end);
 end;
 
 Procedure TMatrixReader.Read(const Rows: array of TFloat32MatrixRow);
@@ -162,10 +182,7 @@ Procedure TMatrixReader.Read(const Rows: array of TFloat32MatrixRow);
 begin
   var Refs: TArray<TFloat32MatrixRow> := TArrayBuilder<TFloat32MatrixRow>.Create(Rows);
   ReadUsingSetter(Length(Refs),CheckedRowSize<Float32>(Refs),
-    procedure(Matrix,Column: Integer; Value: Float64)
-    begin
-      Refs[Matrix][Column] := Value
-    end);
+                  Procedure(Matrix,Column: Integer; Value: Float64) begin Refs[Matrix][Column] := Value end);
 end;
 
 Procedure TMatrixReader.Read(const Rows: array of TFloat64MatrixRow);
@@ -174,10 +191,7 @@ Procedure TMatrixReader.Read(const Rows: array of TFloat64MatrixRow);
 begin
   var Refs: TArray<TFloat64MatrixRow> := TArrayBuilder<TFloat64MatrixRow>.Create(Rows);
   ReadUsingSetter(Length(Refs),CheckedRowSize<Float64>(Refs),
-    procedure(Matrix,Column: Integer; Value: Float64)
-    begin
-      Refs[Matrix][Column] := Value
-    end);
+                  Procedure(Matrix,Column: Integer; Value: Float64) begin Refs[Matrix][Column] := Value end);
 end;
 
 Procedure TMatrixReader.Read(const Setter: TMatrixSetter);
@@ -188,12 +202,7 @@ Procedure TMatrixReader.Read(const Setter: TMatrixSetter);
 begin
   var SetterRows := TSetterMatrixRows.Create(Count,MaxInt,Setter);
   try
-    try
-      Read(CurrentRow,SetterRows);
-    except
-      on E: Exception do
-        raise Exception.Create('Error (' + E.Message + ') reading row ' + (CurrentRow+1).ToString + ' in ' + FileName);
-    end;
+    ReadCurrentRow(SetterRows);
     Inc(CurrentRow);
   finally
     SetterRows.Free;
@@ -204,21 +213,10 @@ Procedure TMatrixReader.Read(const Rows: TCustomMatrixRows);
 begin
   if Assigned(Rows) then
   begin
-    try
-      Read(CurrentRow,Rows);
-    except
-      on E: Exception do
-        raise Exception.Create('Error (' + E.Message + ') reading row ' + (CurrentRow+1).ToString + ' in ' + FileName);
-    end;
+    ReadCurrentRow(Rows);
     // Zeroize values not read from file
-    if Size < Rows.Size then
-    for var Matrix := 0 to Rows.Count-1 do
-    for var Column := Size to Rows.Size-1 do
-    Rows[Matrix,Column] := 0.0;
-    if Count < Rows.Count then
-    for var Matrix := Count to Rows.Count-1 do
-    for var Column := 0 to Rows.Size-1 do
-    Rows[Matrix,Column] := 0.0;
+    if Size < Rows.Size then ZeroizeCells(Rows,0,Size);
+    if Count < Rows.Count then ZeroizeCells(Rows,Count,0);
     Inc(CurrentRow);
   end else
     raise Exception.Create('Rows unassigned');
@@ -231,17 +229,8 @@ begin
   if Length(Selection) > 0 then
   begin
     inherited Create(Reader.FileName,false);
-    // Copy file properties
-    FFileLabel := Reader.FFileLabel;
-    SetSize(Reader.Size);
-    // Set target matrices
-    for var Selected in Selection do
-    begin
-      if (Selected < 0) or (Selected >= Reader.Count) then
-        raise Exception.Create('Matrix index ' + Selected.ToString + ' out of range');
-      SelectMatrix(Reader,Selected);
-    end;
-    // Set unmasked reader
+    CopyFileProperties(Reader);
+    for var Index := low(Selection) to high(Selection) do SelectMatrix(Reader,CheckedIndex(Reader,Selection[Index]));
     Unmasked := Reader;
   end else
     raise Exception.Create('Empty selection');
@@ -252,25 +241,33 @@ begin
   if Length(Selection) > 0 then
   begin
     inherited Create(Reader.FileName,false);
-    // Copy file properties
-    FFileLabel := Reader.FFileLabel;
-    SetSize(Reader.Size);
-    // Set target matrices
-    for var MatrixLabel in Selection do
-    begin
-      var Selected := Reader.GetMatrix(MatrixLabel);
-      if Selected < 0 then
-      raise Exception.Create('Matrix ' + MatrixLabel + ' does not exist');
-      SelectMatrix(Reader,Selected);
-    end;
-    // Set unmasked reader
+    CopyFileProperties(Reader);
+    for var Index := low(Selection) to high(Selection) do SelectMatrix(Reader,LabelIndex(Reader,Selection[Index]));
     Unmasked := Reader;
   end else
     raise Exception.Create('Empty selection');
 end;
 
-Procedure TMaskedMatrixReader.SelectMatrix(const Reader: TMatrixReader; const Selected: Integer);
-// Maps the selected source matrix onto the next target index
+Procedure TMaskedMatrixReader.CopyFileProperties(const Reader: TMatrixReader);
+begin
+  FFileLabel := Reader.FFileLabel;
+  SetSize(Reader.Size);
+end;
+
+Function TMaskedMatrixReader.CheckedIndex(const Reader: TMatrixReader; const Selected: Integer): Integer;
+begin
+  if (Selected < 0) or (Selected >= Reader.Count) then
+    raise Exception.Create('Matrix index ' + Selected.ToString + ' out of range');
+  Result := Selected;
+end;
+
+Function TMaskedMatrixReader.LabelIndex(const Reader: TMatrixReader; const MatrixLabel: String): Integer;
+begin
+  Result := Reader.GetMatrix(MatrixLabel);
+  if Result < 0 then raise Exception.Create('Matrix ' + MatrixLabel + ' does not exist');
+end;
+
+Procedure TMaskedMatrixReader.ExtendTargetMatrices(const Selected: Integer);
 begin
   var Nmatrices := TargetMatrices.Length;
   if Selected >= Nmatrices then
@@ -278,6 +275,12 @@ begin
     TargetMatrices.Length := Selected+1;
     for var Matrix := Nmatrices to Selected do TargetMatrices[Matrix] := -1;
   end;
+end;
+
+Procedure TMaskedMatrixReader.SelectMatrix(const Reader: TMatrixReader; const Selected: Integer);
+// Maps the selected source matrix onto the next target index
+begin
+  ExtendTargetMatrices(Selected);
   if TargetMatrices[Selected] < 0 then
   begin
     TargetMatrices[Selected] := Count;
@@ -316,68 +319,60 @@ begin
   Self.OwnsReader := OwnsReader;
 end;
 
+Function TMatrixEnumReader.ReadsMatrices(const RowSize: Integer; const RowType: TFloatType): Boolean;
+// The matrices are read when the first matrix of a file row is requested
+begin
+  if RowSize <> Size then raise Exception.Create('Invalid row size');
+  Result := Index = 0;
+  if Result then
+    FloatType := RowType
+  else
+    if FloatType <> RowType then raise Exception.Create('Inconsistent row type');
+end;
+
+Procedure TMatrixEnumReader.AllocateRows<T>(var Rows: TArray<TArray<T>>);
+begin
+  SetLength(Rows,Count);
+  for var Matrix := 0 to Count-1 do
+  if Length(Rows[Matrix]) <> Size then SetLength(Rows[Matrix],Size);
+end;
+
+Procedure TMatrixEnumReader.TakeRow<T>(var Row: TArray<T>; var Rows: TArray<TArray<T>>);
+// Copies the result from the matrices
+begin
+  if Index < Count then
+  begin
+    if TArrayInfo.RefCount(Row) = 1 then
+    begin
+      // Exchange rows to avoid copying values
+      var ReadRow := Rows[Index];
+      Rows[Index] := Row;
+      Row := ReadRow;
+    end else
+      // Multiple references to row, so copy values
+      for var Column := 0 to Size-1 do Row[Column] := Rows[Index][Column];
+    Inc(Index);
+  end;
+end;
+
 Procedure TMatrixEnumReader.Read(var Row: TFloat32MatrixRow);
 begin
-  if Length(Row) = Size then
+  if ReadsMatrices(Length(Row),ftFloat32) then
   begin
-    // Read the matrices
-    if Index = 0 then
-    begin
-      FloatType := ftFloat32;
-      SetLength(Rows32,Count);
-      for var Matrix := 0 to Count-1 do
-      if Length(Rows32[Matrix]) <> Size then SetLength(Rows32[Matrix],Size);
-      Reader.Read(Rows32);
-    end else
-      if FloatType <> ftFloat32 then raise Exception.Create('Inconsistent row type');
-    // Copy result from matrices
-    if Index < Count then
-    begin
-      if TArrayInfo.RefCount(Row) = 1 then
-      begin
-        // Exchange rows to avoid copying values
-        var ReadRow := Rows32[Index];
-        Rows32[Index] := Row;
-        Row := ReadRow;
-      end else
-        // Multiple references to row, so copy values
-        for var Column := 0 to Size-1 do Row[Column] := Rows32[Index][Column];
-      Inc(Index);
-    end;
-  end else
-    raise Exception.Create('Invalid row size');
+    AllocateRows<Float32>(Rows32);
+    Reader.Read(Rows32);
+  end;
+  TakeRow<Float32>(Row,Rows32);
 end;
 
 Procedure TMatrixEnumReader.Read(var Row: TFloat64MatrixRow);
 begin
-  if Length(Row) = Size then
+  if ReadsMatrices(Length(Row),ftFloat64) then
   begin
-    // Read the matrices
-    if Index = 0 then
-    begin
-      FloatType := ftFloat64;
-      SetLength(Rows64,Count);
-      for var Matrix := 0 to Count-1 do
-      if Length(Rows64[Matrix]) <> Size then SetLength(Rows64[Matrix],Size);
-      Reader.Read(Rows64);
-    end else
-      if FloatType <> ftFloat64 then raise Exception.Create('Inconsistent row type');
-    // Copy result from matrices
-    if Index < Count then
-    begin
-      if TArrayInfo.RefCount(Row) = 1 then
-      begin
-        // Exchange rows to avoid copying values
-        var ReadRow := Rows64[Index];
-        Rows64[Index] := Row;
-        Row := ReadRow;
-      end else
-        // Multiple references to row, so copy values
-        for var Column := 0 to Size-1 do Row[Column] := Rows64[Index][Column];
-      Inc(Index);
-    end;
-  end else
-    raise Exception.Create('Invalid row size');
+    AllocateRows<Float64>(Rows64);
+    Reader.Read(Rows64);
+  end;
+  TakeRow<Float64>(Row,Rows64);
 end;
 
 Procedure TMatrixEnumReader.NextRow;

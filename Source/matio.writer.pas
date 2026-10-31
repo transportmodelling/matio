@@ -20,6 +20,7 @@ Type
   // The Write-method is called once for each row, and writes the data for each matrix in the file.
   private
     Procedure WriteUsingGetter(NMatrices,RowSize: Integer; const Getter: TMatrixGetter);
+    Procedure WriteCurrentRow(const Rows: TVirtualMatrixRows);
   strict protected
     Constructor Create(const FileName: String; const Count,Size: Integer; const CreateStream: Boolean = true); overload;
   protected
@@ -51,6 +52,9 @@ Type
     // Buffers holding the rows written for the current file row
     Rows32: TArray<TFloat32MatrixRow>;
     Rows64: TArray<TFloat64MatrixRow>;
+    Function StartsRow(const RowSize: Integer; const RowType: TFloatType): Boolean;
+    Procedure AddRow<T>(const Row: TArray<T>; var Rows: TArray<TArray<T>>);
+    Function CompletedRows<T>(const Rows: TArray<TArray<T>>): TArray<TArray<T>>;
   public
     Constructor Create(const MatrixWriter: TMatrixWriter; FixedRows: Boolean; OwnsMatrixWriter: Boolean = true);
     Procedure Write(const Row: TFloat32MatrixRow); overload;
@@ -85,14 +89,26 @@ begin
   end;
 end;
 
+Procedure TMatrixWriter.WriteCurrentRow(const Rows: TVirtualMatrixRows);
+begin
+  try
+    SetRowsRoundToZeroThreshold(Rows,RoundToZeroThreshold);
+    try
+      Write(CurrentRow,Rows);
+    finally
+      SetRowsRoundToZeroThreshold(Rows,0.0);
+    end;
+  except
+    on E: Exception do
+      raise Exception.Create('Error (' + E.Message + ') writing row ' + (CurrentRow+1).ToString + ' in ' + FileName);
+  end;
+end;
+
 Procedure TMatrixWriter.Write(const Row: TVirtualMatrixRow);
 begin
   var Ref := Row;
   WriteUsingGetter(1,Size,
-    function(Matrix,Column: Integer): Float64
-    begin
-      Result := Ref[Column]
-    end);
+                   Function(Matrix,Column: Integer): Float64 begin Result := Ref[Column] end);
 end;
 
 Procedure TMatrixWriter.Write(const Rows: TVirtualMatrixRows);
@@ -100,27 +116,12 @@ begin
   if Assigned(Rows) then
     if CurrentRow < Size then
     begin
-      try
-        SetRowsRoundToZeroThreshold(Rows,RoundToZeroThreshold);
-        try
-          Write(CurrentRow,Rows);
-        finally
-          SetRowsRoundToZeroThreshold(Rows,0.0);
-        end;
-      except
-        on E: Exception do
-          raise Exception.Create('Error (' + E.Message + ') writing row ' + (CurrentRow+1).ToString + ' in ' + FileName);
-      end;
+      WriteCurrentRow(Rows);
       Inc(CurrentRow);
     end else
       raise Exception.Create('Writing too many rows to matrix file')
   else
     raise Exception.Create('Rows unassigned');
-end;
-
-Procedure TMatrixWriter.Write(const Rows: TMatrixGetter);
-begin
-  WriteUsingGetter(Count,Size,Rows);
 end;
 
 Procedure TMatrixWriter.Write(const Row: TMatrixRowGetter);
@@ -142,30 +143,26 @@ begin
   if Refs[Matrix].Size <> RowSize then
   raise Exception.Create('Matrix rows must have the same size');
   WriteUsingGetter(Length(Refs),RowSize,
-    function(Matrix,Column: Integer): Float64
-    begin
-      Result := Refs[Matrix][Column]
-    end);
-end;
-
-Procedure TMatrixWriter.Write(const Rows: array of TFloat32MatrixRow);
-begin
-  var Refs: TArray<TFloat32MatrixRow> := TArrayBuilder<TFloat32MatrixRow>.Create(Rows);
-  WriteUsingGetter(Length(Refs),CheckedRowSize<Float32>(Refs),
-    function(Matrix,Column: Integer): Float64
-    begin
-      Result := Refs[Matrix][Column]
-    end);
+                   Function(Matrix,Column: Integer): Float64 begin Result := Refs[Matrix][Column] end);
 end;
 
 Procedure TMatrixWriter.Write(const Rows: array of TFloat64MatrixRow);
 begin
   var Refs: TArray<TFloat64MatrixRow> := TArrayBuilder<TFloat64MatrixRow>.Create(Rows);
   WriteUsingGetter(Length(Refs),CheckedRowSize<Float64>(Refs),
-    function(Matrix,Column: Integer): Float64
-    begin
-      Result := Refs[Matrix][Column]
-    end);
+                   Function(Matrix,Column: Integer): Float64 begin Result := Refs[Matrix][Column] end);
+end;
+
+Procedure TMatrixWriter.Write(const Rows: array of TFloat32MatrixRow);
+begin
+  var Refs: TArray<TFloat32MatrixRow> := TArrayBuilder<TFloat32MatrixRow>.Create(Rows);
+  WriteUsingGetter(Length(Refs),CheckedRowSize<Float32>(Refs),
+                   Function(Matrix,Column: Integer): Float64 begin Result := Refs[Matrix][Column] end);
+end;
+
+Procedure TMatrixWriter.Write(const Rows: TMatrixGetter);
+begin
+  WriteUsingGetter(Count,Size,Rows);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -178,50 +175,55 @@ begin
   OwnsWriter := OwnsMatrixWriter;
 end;
 
-Procedure TMatrixEnumWriter.Write(const Row: TFloat32MatrixRow);
+Function TMatrixEnumWriter.StartsRow(const RowSize: Integer; const RowType: TFloatType): Boolean;
+// The first matrix of a file row sets the float type
 begin
-  if Length(Row) <> Writer.Size then raise Exception.Create('Invalid row size');
-  // Set float type and reset the row collection on the first matrix of a file row
-  if Count = 0 then
-  begin
-    FloatType := ftFloat32;
-    Rows32 := nil;
-    SetLength(Rows32,Writer.Count);
-  end else
-    if FloatType <> ftFloat32 then raise Exception.Create('Inconsistent row type');
-  // Add row
+  if RowSize <> Writer.Size then raise Exception.Create('Invalid row size');
+  Result := Count = 0;
+  if Result then
+    FloatType := RowType
+  else
+    if FloatType <> RowType then raise Exception.Create('Inconsistent row type');
+end;
+
+Procedure TMatrixEnumWriter.AddRow<T>(const Row: TArray<T>; var Rows: TArray<TArray<T>>);
+begin
   if Count < Writer.Count then
   begin
     if Fixed then
-      Rows32[Count] := Row
+      Rows[Count] := Row
     else
-      Rows32[Count] := Copy(Row);
+      Rows[Count] := Copy(Row);
     Inc(Count);
   end else
     raise Exception.Create('Writing too many matrices');
 end;
 
+Function TMatrixEnumWriter.CompletedRows<T>(const Rows: TArray<TArray<T>>): TArray<TArray<T>>;
+// Matrices that have not been written read as zero
+begin
+  for var Matrix := Count to high(Rows) do SetLength(Rows[Matrix],Writer.Size);
+  Result := Rows;
+end;
+
+Procedure TMatrixEnumWriter.Write(const Row: TFloat32MatrixRow);
+begin
+  if StartsRow(Length(Row),ftFloat32) then
+  begin
+    Rows32 := nil;
+    SetLength(Rows32,Writer.Count);
+  end;
+  AddRow<Float32>(Row,Rows32);
+end;
+
 Procedure TMatrixEnumWriter.Write(const Row: TFloat64MatrixRow);
 begin
-  if Length(Row) <> Writer.Size then raise Exception.Create('Invalid row size');
-  // Set float type and reset the row collection on the first matrix of a file row
-  if Count = 0 then
+  if StartsRow(Length(Row),ftFloat64) then
   begin
-    FloatType := ftFloat64;
     Rows64 := nil;
     SetLength(Rows64,Writer.Count);
-  end else
-    if FloatType <> ftFloat64 then raise Exception.Create('Inconsistent row type');
-  // Add row
-  if Count < Writer.Count then
-  begin
-    if Fixed then
-      Rows64[Count] := Row
-    else
-      Rows64[Count] := Copy(Row);
-    Inc(Count);
-  end else
-    raise Exception.Create('Writing too many matrices');
+  end;
+  AddRow<Float64>(Row,Rows64);
 end;
 
 Procedure TMatrixEnumWriter.NextRow;
@@ -229,30 +231,8 @@ begin
   if Count > 0 then
   begin
     case FloatType of
-      ftFloat32:
-        begin
-          var Rows := Rows32;
-          Writer.Write(function(Matrix,Column: Integer): Float64
-                       begin
-                         // Matrices that have not been written read as zero
-                         if (Matrix < Length(Rows)) and (Column < Length(Rows[Matrix])) then
-                           Result := Rows[Matrix][Column]
-                         else
-                           Result := 0.0
-                       end);
-        end;
-      ftFloat64:
-        begin
-          var Rows := Rows64;
-          Writer.Write(function(Matrix,Column: Integer): Float64
-                       begin
-                         // Matrices that have not been written read as zero
-                         if (Matrix < Length(Rows)) and (Column < Length(Rows[Matrix])) then
-                           Result := Rows[Matrix][Column]
-                         else
-                           Result := 0.0
-                       end);
-        end;
+      ftFloat32: Writer.Write(CompletedRows<Float32>(Rows32));
+      ftFloat64: Writer.Write(CompletedRows<Float64>(Rows64));
     end;
     Count := 0;
   end;
