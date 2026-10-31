@@ -127,7 +127,7 @@ Type
     Function H5Dget_type(dset_id: Int64): Int64;
     Function H5Dget_space(dset_id: Int64): Int64;
     Procedure H5Dread(dset_id: Int64; mem_type_id: Int64; mem_space_id: Int64;
-                     file_space_id: Int64; plist_id: Int64; buf: Pointer);
+                      file_space_id: Int64; plist_id: Int64; buf: Pointer);
     Procedure H5Dwrite(dset_id: Int64; mem_type_id: Int64; mem_space_id: Int64;
                        file_space_id: Int64; plist_id: Int64; buf: Pointer);
     Procedure H5Dclose(dset_id: Int64);
@@ -298,6 +298,13 @@ begin
   FH5T_NATIVE_INT := GetDllConstant('H5T_NATIVE_INT');
   FH5T_NATIVE_FLOAT := GetDllConstant('H5T_NATIVE_FLOAT');
   FH5T_NATIVE_DOUBLE := GetDllConstant('H5T_NATIVE_DOUBLE');
+end;
+
+Function THdf5Dll.NewStringType(const Size: UInt32): Int64;
+begin
+  Result := H5Tcopy(H5T_C_S1);
+  H5Tset_size(Result,Size);
+  H5Tset_strpad(Result,H5T_STR_NULLTERM);
 end;
 
 Procedure THdf5Dll.H5open;
@@ -571,13 +578,6 @@ end;
 Procedure THdf5Dll.H5close;
 begin
   if FH5close < 0 then raise Exception.Create('Error calling H5close')
-end;
-
-Function THdf5Dll.NewStringType(const Size: UInt32): Int64;
-begin
-  Result := H5Tcopy(H5T_C_S1);
-  H5Tset_size(Result,Size);
-  H5Tset_strpad(Result,H5T_STR_NULLTERM);
 end;
 
 Procedure THdf5Dll.CreateStringAttribute(ObjId: Int64; ObjectName,AttributeName,AttributeValue: AnsiString);

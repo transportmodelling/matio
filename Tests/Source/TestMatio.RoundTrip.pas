@@ -426,7 +426,7 @@ var
 begin
   TempFile := MakeTempFile('.txt');
   // Writer declared for 2 matrices of NZones columns; each row supplies only
-  // 1 matrix with 3 columns — the remaining cells must end up as zeros
+  // 1 matrix with 3 columns - the remaining cells must end up as zeros
   Props := MakeWriteProps(TempFile, 'txt');
   Props.Append('delim', 'tab');
   Writer := MatrixFormats.CreateWriter(Props, '', NMatrices, NZones);
@@ -870,7 +870,7 @@ var
 begin
   if not FAvailable then
   begin
-    Assert.Pass('HDF5 DLL not available — skipping OMX round-trip test');
+    Assert.Pass('HDF5 DLL not available - skipping OMX round-trip test');
     Exit;
   end;
   TempFile := MakeTempFile;
@@ -897,7 +897,7 @@ var
 begin
   if not FAvailable then
   begin
-    Assert.Pass('HDF5 DLL not available — skipping OMX round-trip test');
+    Assert.Pass('HDF5 DLL not available - skipping OMX round-trip test');
     Exit;
   end;
   TempFile := MakeTempFile;
@@ -924,7 +924,7 @@ var
 begin
   if not FAvailable then
   begin
-    Assert.Pass('HDF5 DLL not available — skipping OMX round-trip test');
+    Assert.Pass('HDF5 DLL not available - skipping OMX round-trip test');
     Exit;
   end;
   TempFile := MakeTempFile;
@@ -973,7 +973,7 @@ var
 begin
   if not FAvailable then
   begin
-    Assert.Pass('HDF5 DLL not available — skipping Cube round-trip test');
+    Assert.Pass('HDF5 DLL not available - skipping Cube round-trip test');
     Exit;
   end;
   TempFile := MakeTempFile;
@@ -1000,7 +1000,7 @@ var
 begin
   if not FAvailable then
   begin
-    Assert.Pass('HDF5 DLL not available — skipping Cube round-trip test');
+    Assert.Pass('HDF5 DLL not available - skipping Cube round-trip test');
     Exit;
   end;
   TempFile := MakeTempFile;
@@ -1028,7 +1028,7 @@ var
 begin
   if not FAvailable then
   begin
-    Assert.Pass('HDF5 DLL not available — skipping Cube round-trip test');
+    Assert.Pass('HDF5 DLL not available - skipping Cube round-trip test');
     Exit;
   end;
   TempFile := MakeTempFile;

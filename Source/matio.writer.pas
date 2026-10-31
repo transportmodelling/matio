@@ -22,7 +22,9 @@ Type
     Procedure WriteUsingGetter(NMatrices,RowSize: Integer; const Getter: TMatrixGetter);
     Procedure WriteCurrentRow(const Rows: TVirtualMatrixRows);
   strict protected
-    Constructor Create(const FileName: String; const Count,Size: Integer; const CreateStream: Boolean = true); overload;
+    Constructor Create(const FileName: String;
+                       const Count,Size: Integer;
+                       const CreateStream: Boolean = true); overload;
   protected
     Procedure Write(const CurrentRow: Integer; const Rows: TVirtualMatrixRows); overload; virtual; abstract;
   public

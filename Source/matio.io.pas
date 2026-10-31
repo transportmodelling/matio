@@ -145,14 +145,6 @@ end;
 
 ////////////////////////////////////////////////////////////////////////////////
 
-Procedure TMatrixRowsReader.SetOpenedReader(const MatrixReader: TMatrixReader; const Count,Size: Integer);
-begin
-  if MatrixReader <> nil then
-    SetReader(MatrixReader,Count,Size)
-  else
-    raise Exception.Create('Error opening matrix file');
-end;
-
 Constructor TMatrixRowsReader.Create(const [ref] Config: TKeyValuePairs;
                                      const Count,Size: Integer);
 begin
@@ -174,6 +166,14 @@ Constructor TMatrixRowsReader.Create(const [ref] Config: TKeyValuePairs;
 begin
   inherited Create;
   SetOpenedReader(MatrixFormats.CreateReader(Config,Selection),Length(Selection),Size);
+end;
+
+Procedure TMatrixRowsReader.SetOpenedReader(const MatrixReader: TMatrixReader; const Count,Size: Integer);
+begin
+  if MatrixReader <> nil then
+    SetReader(MatrixReader,Count,Size)
+  else
+    raise Exception.Create('Error opening matrix file');
 end;
 
 Destructor TMatrixRowsReader.Destroy;

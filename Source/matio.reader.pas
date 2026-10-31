@@ -194,6 +194,19 @@ begin
                   Procedure(Matrix,Column: Integer; Value: Float64) begin Refs[Matrix][Column] := Value end);
 end;
 
+Procedure TMatrixReader.Read(const Rows: TCustomMatrixRows);
+begin
+  if Assigned(Rows) then
+  begin
+    ReadCurrentRow(Rows);
+    // Zeroize values not read from file
+    if Size < Rows.Size then ZeroizeCells(Rows,0,Size);
+    if Count < Rows.Count then ZeroizeCells(Rows,Count,0);
+    Inc(CurrentRow);
+  end else
+    raise Exception.Create('Rows unassigned');
+end;
+
 Procedure TMatrixReader.Read(const Setter: TMatrixSetter);
 // The setter is called for every cell of the current row the format reader
 // produces; cells that are absent from the file (and thus read as zero) may
@@ -207,19 +220,6 @@ begin
   finally
     SetterRows.Free;
   end;
-end;
-
-Procedure TMatrixReader.Read(const Rows: TCustomMatrixRows);
-begin
-  if Assigned(Rows) then
-  begin
-    ReadCurrentRow(Rows);
-    // Zeroize values not read from file
-    if Size < Rows.Size then ZeroizeCells(Rows,0,Size);
-    if Count < Rows.Count then ZeroizeCells(Rows,Count,0);
-    Inc(CurrentRow);
-  end else
-    raise Exception.Create('Rows unassigned');
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

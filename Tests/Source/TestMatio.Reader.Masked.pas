@@ -45,7 +45,7 @@ procedure TMaskedReaderTests.MultiIndex_Count_Is2;
 var
   Reader: TMatrixReader;
 begin
-  // Select TRANSFERS (1) then IVT (0) — reversed order
+  // Select TRANSFERS (1) then IVT (0) - reversed order
   Reader := MatrixFormats.CreateReader(MakeTxtProps(DataDir + 'example.txt', 'tab'), [1, 0]);
   try
     Assert.AreEqual(2, Reader.Count);

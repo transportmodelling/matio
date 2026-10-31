@@ -18,12 +18,16 @@ Type
   TFloatType = (ftFloat16,ftFloat32,ftFloat64);
 
   TFloat32MatrixRow = TArray<Float32>;
+
   TFloat64MatrixRow = TArray<Float64>;
+
   TMatrixRow = TFloat64MatrixRow;
 
   TMatrixGetter = TFunc<Integer,Integer,Float64>; // Returns the value at (Matrix,Column)
+
   TMatrixSetter = TProc<Integer,Integer,Float64>; // Receives the value at (Matrix,Column)
-  TMatrixRowGetter = TFunc<Integer,Float64>;      // Returns the value at (Column) for a single matrix row
+
+  TMatrixRowGetter = TFunc<Integer,Float64>; // Returns the value at (Column) for a single matrix row
 
   TVirtualMatrixRow = Class
   // TVirtualMatrixRow is the abstract base class for all matrix row objects
@@ -74,8 +78,10 @@ Type
     Function CheckedRowSize<T>(const Rows: TArray<TArray<T>>): Integer;
     Procedure SetCount(Count: Integer); virtual;
     Procedure SetSize(Size: Integer);
-    Procedure SetRowsTargetMatrices(const Rows: TVirtualMatrixRows; const TargetMatrices: TArray<Integer>);
-    Procedure SetRowsRoundToZeroThreshold(const Rows: TVirtualMatrixRows; const Threshold: Float64);
+    Procedure SetRowsTargetMatrices(const Rows: TVirtualMatrixRows;
+                                    const TargetMatrices: TArray<Integer>);
+    Procedure SetRowsRoundToZeroThreshold(const Rows: TVirtualMatrixRows;
+                                          const Threshold: Float64);
   public
     Destructor Destroy; override;
   public

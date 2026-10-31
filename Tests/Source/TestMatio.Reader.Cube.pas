@@ -73,7 +73,7 @@ procedure TCubeReaderTests.Cube_Size_Is485;
 begin
   if not FAvailable then
   begin
-    Assert.Pass('HDF5 DLL not available — skipping Cube tests');
+    Assert.Pass('HDF5 DLL not available - skipping Cube tests');
     Exit;
   end;
   Assert.AreEqual(485, FCube.Size);
@@ -85,7 +85,7 @@ var
 begin
   if not FAvailable then
   begin
-    Assert.Pass('HDF5 DLL not available — skipping Cube tests');
+    Assert.Pass('HDF5 DLL not available - skipping Cube tests');
     Exit;
   end;
   Mismatch := CompareMatrices(FTxt, FCube, TolCube);
@@ -99,7 +99,7 @@ var
 begin
   if not FAvailable then
   begin
-    Assert.Pass('HDF5 DLL not available — skipping Cube tests');
+    Assert.Pass('HDF5 DLL not available - skipping Cube tests');
     Exit;
   end;
   Props := MakeProps(DataDir + 'example.cube-matrix', 'cube');
@@ -118,7 +118,7 @@ var
 begin
   if not FAvailable then
   begin
-    Assert.Pass('HDF5 DLL not available — skipping Cube tests');
+    Assert.Pass('HDF5 DLL not available - skipping Cube tests');
     Exit;
   end;
   Props := MakeProps(DataDir + 'example.cube-matrix', 'cube');
@@ -137,7 +137,7 @@ var
 begin
   if not FAvailable then
   begin
-    Assert.Pass('HDF5 DLL not available — skipping Cube tests');
+    Assert.Pass('HDF5 DLL not available - skipping Cube tests');
     Exit;
   end;
   Props := MakeProps(DataDir + 'example.cube-matrix', 'cube');
@@ -153,7 +153,7 @@ procedure TCubeReaderTests.Cube_SelectByIndex_Raises;
 begin
   if not FAvailable then
   begin
-    Assert.Pass('HDF5 DLL not available — skipping Cube tests');
+    Assert.Pass('HDF5 DLL not available - skipping Cube tests');
     Exit;
   end;
   Assert.WillRaise(

@@ -75,7 +75,7 @@ procedure TOMXReaderTests.OMX_Size_Is485;
 begin
   if not FAvailable then
   begin
-    Assert.Pass('HDF5 DLL not available — skipping OMX tests');
+    Assert.Pass('HDF5 DLL not available - skipping OMX tests');
     Exit;
   end;
   Assert.AreEqual(485, FOMx.Size);
@@ -87,7 +87,7 @@ var
 begin
   if not FAvailable then
   begin
-    Assert.Pass('HDF5 DLL not available — skipping OMX tests');
+    Assert.Pass('HDF5 DLL not available - skipping OMX tests');
     Exit;
   end;
   Mismatch := CompareMatrices(FTxt, FOMx, TolOMX);
@@ -101,7 +101,7 @@ var
 begin
   if not FAvailable then
   begin
-    Assert.Pass('HDF5 DLL not available — skipping OMX tests');
+    Assert.Pass('HDF5 DLL not available - skipping OMX tests');
     Exit;
   end;
   Props := MakeProps(DataDir + 'example.omx', 'omx');
@@ -120,7 +120,7 @@ var
 begin
   if not FAvailable then
   begin
-    Assert.Pass('HDF5 DLL not available — skipping OMX tests');
+    Assert.Pass('HDF5 DLL not available - skipping OMX tests');
     Exit;
   end;
   Props := MakeProps(DataDir + 'example.omx', 'omx');
@@ -139,7 +139,7 @@ var
 begin
   if not FAvailable then
   begin
-    Assert.Pass('HDF5 DLL not available — skipping OMX tests');
+    Assert.Pass('HDF5 DLL not available - skipping OMX tests');
     Exit;
   end;
   Props := MakeProps(DataDir + 'example.omx', 'omx');
@@ -158,7 +158,7 @@ var
 begin
   if not FAvailable then
   begin
-    Assert.Pass('HDF5 DLL not available — skipping OMX tests');
+    Assert.Pass('HDF5 DLL not available - skipping OMX tests');
     Exit;
   end;
   Props := MakeProps(DataDir + 'example.omx', 'omx');
@@ -177,7 +177,7 @@ procedure TOMXReaderTests.OMX_SelectByIndex_Raises;
 begin
   if not FAvailable then
   begin
-    Assert.Pass('HDF5 DLL not available — skipping OMX tests');
+    Assert.Pass('HDF5 DLL not available - skipping OMX tests');
     Exit;
   end;
   Assert.WillRaise(
@@ -196,7 +196,7 @@ procedure TOMXReaderTests.OMX_CreateReader_DefaultOrdered_Raises;
 begin
   if not FAvailable then
   begin
-    Assert.Pass('HDF5 DLL not available — skipping OMX tests');
+    Assert.Pass('HDF5 DLL not available - skipping OMX tests');
     Exit;
   end;
   // Reading all matrices requires the caller to acknowledge the missing

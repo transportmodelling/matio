@@ -77,12 +77,6 @@ end;
 
 ////////////////////////////////////////////////////////////////////////////////
 
-Class Constructor TTextMatrixWriter.Create;
-begin
-  RowLabel := 'Row';
-  ColumnLabel := 'Column';
-end;
-
 Class Procedure TTextMatrixWriter.SetRowLabel(RowLabel: String);
 begin
   RowLabel := Trim(RowLabel);
@@ -95,6 +89,12 @@ begin
   ColumnLabel := Trim(ColumnLabel);
   if ColumnLabel <> '' then FColumnLabel := ColumnLabel else
   raise Exception.Create('Header label cannot be empty');
+end;
+
+Class Constructor TTextMatrixWriter.Create;
+begin
+  RowLabel := 'Row';
+  ColumnLabel := 'Column';
 end;
 
 Constructor TTextMatrixWriter.Create(const FileName: String;

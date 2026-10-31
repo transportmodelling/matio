@@ -204,7 +204,7 @@ begin
       begin
         for Matrix := 0 to NMatrices - 1 do
         begin
-          // Fresh array per call — caller guarantees not to modify it after Write
+          // Fresh array per call - caller guarantees not to modify it after Write
           SetLength(RowData, NZones);
           for Col := 0 to NZones - 1 do
             RowData[Col] := Written[Matrix, Row, Col];

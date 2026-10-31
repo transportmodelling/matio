@@ -63,7 +63,7 @@ type
     // Construction
     [Test] procedure Count_IsCorrect;
     [Test] procedure Size_IsCorrect;
-    // Value access — float32 precision
+    // Value access - float32 precision
     [Test] procedure SetAndGet_WithinFloat32Precision;
     // Metadata
     [Test] procedure MatrixLabels_SetAndGet;

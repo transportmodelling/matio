@@ -485,7 +485,7 @@ var
   SavedDll: THdf5Dll;
 begin
   // Temporarily set the global to nil regardless of the exe-dir DLL state,
-  // assert, then restore — TearDown will reconcile FSavedDll afterwards.
+  // assert, then restore - TearDown will reconcile FSavedDll afterwards.
   SavedDll := Hdf5Dll;
   Hdf5Dll  := nil;
   try
@@ -500,7 +500,7 @@ procedure TOMXAvailabilityTests.OMX_Available_WhenDllLoaded;
 begin
   if not FileExists(FDllPath) then
   begin
-    Assert.Pass('hdf5.dll not found in Tests\Data\ — skipping OMX availability test');
+    Assert.Pass('hdf5.dll not found in Tests\Data\ - skipping OMX availability test');
     Exit;
   end;
   // Load the DLL from Tests\Data\ so the test is self-contained. Any DLL
