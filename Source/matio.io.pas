@@ -59,6 +59,8 @@ Type
   TMatrixRowsReader = Class(TCustomFloat64MatrixRowsReader)
   // Creates and owns its own reader.
   // Suitable for applications that process all rows on the same thread.
+  private
+    Procedure SetOpenedReader(const MatrixReader: TMatrixReader; const Count,Size: Integer);
   public
     Constructor Create(const [ref] Config: TKeyValuePairs;
                        const Count,Size: Integer); overload;
@@ -143,11 +145,8 @@ end;
 
 ////////////////////////////////////////////////////////////////////////////////
 
-Constructor TMatrixRowsReader.Create(const [ref] Config: TKeyValuePairs;
-                                     const Count,Size: Integer);
+Procedure TMatrixRowsReader.SetOpenedReader(const MatrixReader: TMatrixReader; const Count,Size: Integer);
 begin
-  inherited Create;
-  var MatrixReader := MatrixFormats.CreateReader(Config);
   if MatrixReader <> nil then
     SetReader(MatrixReader,Count,Size)
   else
@@ -155,15 +154,18 @@ begin
 end;
 
 Constructor TMatrixRowsReader.Create(const [ref] Config: TKeyValuePairs;
+                                     const Count,Size: Integer);
+begin
+  inherited Create;
+  SetOpenedReader(MatrixFormats.CreateReader(Config),Count,Size);
+end;
+
+Constructor TMatrixRowsReader.Create(const [ref] Config: TKeyValuePairs;
                                      const Selection: array of Integer;
                                      const Size: Integer);
 begin
   inherited Create;
-  var MatrixReader := MatrixFormats.CreateReader(Config,Selection);
-  if MatrixReader <> nil then
-    SetReader(MatrixReader,Length(Selection),Size)
-  else
-    raise Exception.Create('Error opening matrix file');
+  SetOpenedReader(MatrixFormats.CreateReader(Config,Selection),Length(Selection),Size);
 end;
 
 Constructor TMatrixRowsReader.Create(const [ref] Config: TKeyValuePairs;
@@ -171,11 +173,7 @@ Constructor TMatrixRowsReader.Create(const [ref] Config: TKeyValuePairs;
                                      const Size: Integer);
 begin
   inherited Create;
-  var MatrixReader := MatrixFormats.CreateReader(Config,Selection);
-  if MatrixReader <> nil then
-    SetReader(MatrixReader,Length(Selection),Size)
-  else
-    raise Exception.Create('Error opening matrix file');
+  SetOpenedReader(MatrixFormats.CreateReader(Config,Selection),Length(Selection),Size);
 end;
 
 Destructor TMatrixRowsReader.Destroy;

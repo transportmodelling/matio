@@ -22,14 +22,19 @@ Type
     FCount,FSize: Integer;
     FFileName,FFileLabel: String;
     FMatrixLabels: TArray<String>;
+    FRows: TArray<TCustomMatrixRows>;
     Procedure ResetLabels;
     Function GetMatrixLabels(Matrix: Integer): String;
     Procedure SetMatrixLabels(Matrix: Integer; MatrixLabel: String);
-    Function GetValues(Matrix,Row,Column: Integer): Float64; virtual; abstract;
-    Procedure SetValues(Matrix,Row,Column: Integer; Value: Float64); virtual; abstract;
-    Function GetRows(Row: Integer): TCustomMatrixRows; virtual; abstract;
+    Function GetValues(Matrix,Row,Column: Integer): Float64;
+    Procedure SetValues(Matrix,Row,Column: Integer; Value: Float64);
+    Function GetRows(Row: Integer): TCustomMatrixRows;
     Procedure ReadRows(const Reader: TMatrixReader);
+    Procedure ReadAndFree(const Reader: TMatrixReader);
+  strict protected
+    Function NewRows(Count,Size: Integer): TCustomMatrixRows; virtual; abstract;
   public
+    Constructor Create(Count,Size: Integer);
     Function MatrixLabelValues: TStringArrayValues;
     // Pass Ordered=false to read all matrices of a format that does not define
     // a matrix order (e.g. OMX); the matrices are then stored in the order the
@@ -42,6 +47,7 @@ Type
     Procedure Transpose(Matrix: Integer); overload;
     Procedure Transpose; overload;
     Procedure Save(const [ref] Config: TKeyValuePairs);
+    Destructor Destroy; override;
   public
     Property Count: Integer read FCount;
     Property Size: Integer read FSize;
@@ -53,28 +59,18 @@ Type
 
   TFloat32Matrices = Class(TCustomMatrices)
   // In memory float32 matrices
-  private
-    FRows: array of TFloat32MatrixRows;
-    Function GetValues(Matrix,Row,Column: Integer): Float64; override;
-    Procedure SetValues(Matrix,Row,Column: Integer; Value: Float64); override;
-    Function GetRows(Row: Integer): TCustomMatrixRows; override;
+  strict protected
+    Function NewRows(Count,Size: Integer): TCustomMatrixRows; override;
   public
-    Constructor Create(Count,Size: Integer);
     Function RowValues(Matrix,Row: Integer): TFloat32ArrayValues;
-    Destructor Destroy; override;
   end;
 
   TFloat64Matrices = Class(TCustomMatrices)
   // In memory float64 matrices
-  private
-    FRows: array of TFloat64MatrixRows;
-    Function GetValues(Matrix,Row,Column: Integer): Float64; override;
-    Procedure SetValues(Matrix,Row,Column: Integer; Value: Float64); override;
-    Function GetRows(Row: Integer): TCustomMatrixRows; override;
+  strict protected
+    Function NewRows(Count,Size: Integer): TCustomMatrixRows; override;
   public
-    Constructor Create(Count,Size: Integer);
     Function RowValues(Matrix,Row: Integer): TFloat64ArrayValues;
-    Destructor Destroy; override;
   end;
 
   TMemoryMatrixReader = Class
@@ -137,6 +133,16 @@ Type
 implementation
 ////////////////////////////////////////////////////////////////////////////////
 
+Constructor TCustomMatrices.Create(Count,Size: Integer);
+begin
+  inherited Create;
+  FCount := Count;
+  FSize := Size;
+  SetLength(FMatrixLabels,Count);
+  SetLength(FRows,FSize);
+  for var Row := 0 to FSize-1 do FRows[Row] := NewRows(Count,Size);
+end;
+
 Procedure TCustomMatrices.ResetLabels;
 begin
   FFileName := '';
@@ -154,6 +160,21 @@ begin
   FMatrixLabels[Matrix] := MatrixLabel;
 end;
 
+Function TCustomMatrices.GetValues(Matrix,Row,Column: Integer): Float64;
+begin
+  Result := FRows[Row][Matrix,Column];
+end;
+
+Procedure TCustomMatrices.SetValues(Matrix,Row,Column: Integer; Value: Float64);
+begin
+  FRows[Row][Matrix,Column] := Value;
+end;
+
+Function TCustomMatrices.GetRows(Row: Integer): TCustomMatrixRows;
+begin
+  Result := FRows[Row];
+end;
+
 Procedure TCustomMatrices.ReadRows(const Reader: TMatrixReader);
 begin
   ResetLabels;
@@ -165,6 +186,15 @@ begin
   for var Row := 0 to FSize-1 do Reader.Read(GetRows(Row));
 end;
 
+Procedure TCustomMatrices.ReadAndFree(const Reader: TMatrixReader);
+begin
+  try
+    ReadRows(Reader);
+  finally
+    Reader.Free;
+  end;
+end;
+
 Function TCustomMatrices.MatrixLabelValues: TStringArrayValues;
 begin
   Result := TStringArrayValues.Create(FMatrixLabels);
@@ -172,34 +202,19 @@ end;
 
 Procedure TCustomMatrices.Read(const [ref] Config: TKeyValuePairs; Ordered: Boolean = true);
 begin
-  var Reader := MatrixFormats.CreateReader(Config,Ordered);
-  try
-    ReadRows(Reader);
-  finally
-    Reader.Free;
-  end;
+  ReadAndFree(MatrixFormats.CreateReader(Config,Ordered));
 end;
 
 Procedure TCustomMatrices.Read(const [ref] Config: TKeyValuePairs;
                                const Selection: array of Integer);
 begin
-  var Reader := MatrixFormats.CreateReader(Config,Selection);
-  try
-    ReadRows(Reader);
-  finally
-    Reader.Free;
-  end;
+  ReadAndFree(MatrixFormats.CreateReader(Config,Selection));
 end;
 
 Procedure TCustomMatrices.Read(const [ref] Config: TKeyValuePairs;
                                const Selection: array of String);
 begin
-  var Reader := MatrixFormats.CreateReader(Config,Selection);
-  try
-    ReadRows(Reader);
-  finally
-    Reader.Free;
-  end;
+  ReadAndFree(MatrixFormats.CreateReader(Config,Selection));
 end;
 
 Procedure TCustomMatrices.Transpose(Matrix: Integer);
@@ -230,80 +245,34 @@ begin
   end;
 end;
 
+Destructor TCustomMatrices.Destroy;
+begin
+  for var Row := low(FRows) to high(FRows) do FRows[Row].Free;
+  inherited Destroy;
+end;
+
 ////////////////////////////////////////////////////////////////////////////////
 
-Constructor TFloat32Matrices.Create(Count,Size: Integer);
+Function TFloat32Matrices.NewRows(Count,Size: Integer): TCustomMatrixRows;
 begin
-  inherited Create;
-  FCount := Count;
-  FSize := Size;
-  SetLength(FMatrixLabels,Count);
-  SetLength(FRows,FSize);
-  for var Row := 0 to FSize-1 do FRows[Row] := TFloat32MatrixRows.Create(Count,Size);
-end;
-
-Function TFloat32Matrices.GetValues(Matrix,Row,Column: Integer): Float64;
-begin
-  Result := FRows[Row][Matrix,Column];
-end;
-
-Procedure TFloat32Matrices.SetValues(Matrix,Row,Column: Integer; Value: Float64);
-begin
-  FRows[Row][Matrix,Column] := Value;
-end;
-
-Function TFloat32Matrices.GetRows(Row: Integer): TCustomMatrixRows;
-begin
-  Result := FRows[Row];
+  Result := TFloat32MatrixRows.Create(Count,Size);
 end;
 
 Function TFloat32Matrices.RowValues(Matrix,Row: Integer): TFloat32ArrayValues;
 begin
-  Result := FRows[Row].RowValues(Matrix);
-end;
-
-Destructor TFloat32Matrices.Destroy;
-begin
-  for var Row := low(FRows) to high(FRows) do FRows[Row].Free;
-  inherited Destroy;
+  Result := TFloat32MatrixRows(FRows[Row]).RowValues(Matrix);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
 
-Constructor TFloat64Matrices.Create(Count,Size: Integer);
+Function TFloat64Matrices.NewRows(Count,Size: Integer): TCustomMatrixRows;
 begin
-  inherited Create;
-  FCount := Count;
-  FSize := Size;
-  SetLength(FMatrixLabels,Count);
-  SetLength(FRows,FSize);
-  for var Row := 0 to FSize-1 do FRows[Row] := TFloat64MatrixRows.Create(Count,Size);
-end;
-
-Function TFloat64Matrices.GetValues(Matrix,Row,Column: Integer): Float64;
-begin
-  Result := FRows[Row][Matrix,Column];
-end;
-
-Procedure TFloat64Matrices.SetValues(Matrix,Row,Column: Integer; Value: Float64);
-begin
-  FRows[Row][Matrix,Column] := Value;
-end;
-
-Function TFloat64Matrices.GetRows(Row: Integer): TCustomMatrixRows;
-begin
-  Result := FRows[Row];
+  Result := TFloat64MatrixRows.Create(Count,Size);
 end;
 
 Function TFloat64Matrices.RowValues(Matrix,Row: Integer): TFloat64ArrayValues;
 begin
-  Result := FRows[Row].RowValues(Matrix);
-end;
-
-Destructor TFloat64Matrices.Destroy;
-begin
-  for var Row := low(FRows) to high(FRows) do FRows[Row].Free;
-  inherited Destroy;
+  Result := TFloat64MatrixRows(FRows[Row]).RowValues(Matrix);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

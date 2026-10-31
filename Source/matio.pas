@@ -71,7 +71,7 @@ Type
       FFileName: String;
       FCount,FSize,CurrentRow: Integer;
       FileStream: TBufferedFileStream;
-    Class Function CheckedRowSize<T>(const Rows: TArray<TArray<T>>): Integer;
+    Function CheckedRowSize<T>(const Rows: TArray<TArray<T>>): Integer;
     Procedure SetCount(Count: Integer); virtual;
     Procedure SetSize(Size: Integer);
     Procedure SetRowsTargetMatrices(const Rows: TVirtualMatrixRows; const TargetMatrices: TArray<Integer>);
@@ -90,6 +90,9 @@ Const
 ////////////////////////////////////////////////////////////////////////////////
 implementation
 ////////////////////////////////////////////////////////////////////////////////
+
+Uses
+  Math;
 
 Procedure TVirtualMatrixRow.Init(Size: Integer);
 begin
@@ -122,22 +125,16 @@ end;
 
 Procedure TVirtualMatrixRows.GetRow(Matrix: Integer; var Row: TFloat32MatrixRow);
 begin
-  if FSize < Length(Row) then
-  begin
-    for var Column := 0 to FSize-1 do Row[Column] := DoGetValues(Matrix,Column);
-    for var Column := FSize to Length(Row)-1 do Row[Column] := 0.0;
-  end else
-    for var Column := 0 to Length(Row)-1 do Row[Column] := DoGetValues(Matrix,Column);
+  var Columns := Min(FSize,Length(Row));
+  for var Column := 0 to Columns-1 do Row[Column] := DoGetValues(Matrix,Column);
+  for var Column := Columns to Length(Row)-1 do Row[Column] := 0.0;
 end;
 
 Procedure TVirtualMatrixRows.GetRow(Matrix: Integer; var Row: TFloat64MatrixRow);
 begin
-  if FSize < Length(Row) then
-  begin
-    for var Column := 0 to FSize-1 do Row[Column] := DoGetValues(Matrix,Column);
-    for var Column := FSize to Length(Row)-1 do Row[Column] := 0.0;
-  end else
-    for var Column := 0 to Length(Row)-1 do Row[Column] := DoGetValues(Matrix,Column);
+  var Columns := Min(FSize,Length(Row));
+  for var Column := 0 to Columns-1 do Row[Column] := DoGetValues(Matrix,Column);
+  for var Column := Columns to Length(Row)-1 do Row[Column] := 0.0;
 end;
 
 Function TVirtualMatrixRows.Total: Float64;
@@ -154,7 +151,7 @@ end;
 
 ////////////////////////////////////////////////////////////////////////////////
 
-Class Function TMatrixFiler.CheckedRowSize<T>(const Rows: TArray<TArray<T>>): Integer;
+Function TMatrixFiler.CheckedRowSize<T>(const Rows: TArray<TArray<T>>): Integer;
 begin
   Result := 0;
   if Length(Rows) > 0 then

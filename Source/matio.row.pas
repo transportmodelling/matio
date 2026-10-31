@@ -37,6 +37,7 @@ Type
   // Base class for matrix rows with read and write access. Descendents must implement
   // the in memory storage for matrix values.
   private
+    Procedure SetTargetValues(Matrix,Column: Integer; Value: Float64);
     Procedure DoSetValues(Matrix,Column: Integer; Value: Float64); inline;
   strict protected
     Procedure SetValues(Matrix,Column: Integer; Value: Float64); virtual; abstract;
@@ -61,29 +62,35 @@ Type
     Constructor Create(const Count,Size: Integer; const Setter: TMatrixSetter);
   end;
 
-  TFloat32MatrixRows = Class(TCustomMatrixRows)
+  TCustomFloatMatrixRows = Class(TCustomMatrixRows)
+  // Base class for matrix rows that hold their values in memory. Descendents
+  // allocate the values for the float type they store.
+  strict protected
+    Procedure AllocateValues(Count,Size: Integer); virtual; abstract;
+  public
+    Constructor Create(Count,Size: Integer); overload;
+    Procedure Allocate(Count,Size: Integer);
+  end;
+
+  TFloat32MatrixRows = Class(TCustomFloatMatrixRows)
   private
     FValues: array of TFloat32MatrixRow;
   strict protected
     Function GetValues(Matrix,Column: Integer): Float64; override;
     Procedure SetValues(Matrix,Column: Integer; Value: Float64); override;
+    Procedure AllocateValues(Count,Size: Integer); override;
   public
-    Constructor Create; overload;
-    Constructor Create(Count,Size: Integer); overload;
-    Procedure Allocate(Count,Size: Integer);
     Function RowValues(Matrix: Integer): TFloat32ArrayValues;
   end;
 
-  TFloat64MatrixRows = Class(TCustomMatrixRows)
+  TFloat64MatrixRows = Class(TCustomFloatMatrixRows)
   private
     FValues: array of TFloat64MatrixRow;
   strict protected
     Function GetValues(Matrix,Column: Integer): Float64; override;
     Procedure SetValues(Matrix,Column: Integer; Value: Float64); override;
+    Procedure AllocateValues(Count,Size: Integer); override;
   public
-    Constructor Create; overload;
-    Constructor Create(Count,Size: Integer); overload;
-    Procedure Allocate(Count,Size: Integer);
     Function RowValues(Matrix: Integer): TFloat64ArrayValues;
   end;
 
@@ -119,17 +126,23 @@ end;
 
 ////////////////////////////////////////////////////////////////////////////////
 
+Procedure TCustomMatrixRows.SetTargetValues(Matrix,Column: Integer; Value: Float64);
+// Maps the matrix onto its index in the target matrices
+begin
+  if Matrix < TargetMatrices.Length then
+  begin
+    Matrix := TargetMatrices[Matrix];
+    if (Matrix >= 0) and (Matrix < Count) and (Column < Size) then SetValues(Matrix,Column,Value);
+  end;
+end;
+
 Procedure TCustomMatrixRows.DoSetValues(Matrix,Column: Integer; Value: Float64);
 begin
   if TargetMatrices.Length = 0 then
   begin
     if (Matrix < Count) and (Column < Size) then SetValues(Matrix,Column,Value);
   end else
-  if Matrix < TargetMatrices.Length then
-  begin
-    Matrix := TargetMatrices[Matrix];
-    if (Matrix >= 0) and (Matrix < Count) and (Column < Size) then SetValues(Matrix,Column,Value);
-  end;
+    SetTargetValues(Matrix,Column,Value);
 end;
 
 Procedure TCustomMatrixRows.Clear;
@@ -165,16 +178,19 @@ end;
 
 ////////////////////////////////////////////////////////////////////////////////
 
-Constructor TFloat32MatrixRows.Create;
-begin
-  inherited Create;
-end;
-
-Constructor TFloat32MatrixRows.Create(Count,Size: Integer);
+Constructor TCustomFloatMatrixRows.Create(Count,Size: Integer);
 begin
   inherited Create;
   Allocate(Count,Size);
 end;
+
+Procedure TCustomFloatMatrixRows.Allocate(Count,Size: Integer);
+begin
+  Init(Count,Size);
+  AllocateValues(Count,Size);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
 
 Function TFloat32MatrixRows.GetValues(Matrix,Column: Integer): Float64;
 begin
@@ -186,9 +202,8 @@ begin
   FValues[Matrix,Column] := Value
 end;
 
-Procedure TFloat32MatrixRows.Allocate(Count,Size: Integer);
+Procedure TFloat32MatrixRows.AllocateValues(Count,Size: Integer);
 begin
-  Init(Count,Size);
   SetLength(FValues,Count,Size);
 end;
 
@@ -198,17 +213,6 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
-
-Constructor TFloat64MatrixRows.Create;
-begin
-  inherited Create;
-end;
-
-Constructor TFloat64MatrixRows.Create(Count,Size: Integer);
-begin
-  inherited Create;
-  Allocate(Count,Size);
-end;
 
 Function TFloat64MatrixRows.GetValues(Matrix,Column: Integer): Float64;
 begin
@@ -220,9 +224,8 @@ begin
   FValues[Matrix,Column] := Value
 end;
 
-Procedure TFloat64MatrixRows.Allocate(Count,Size: Integer);
+Procedure TFloat64MatrixRows.AllocateValues(Count,Size: Integer);
 begin
-  Init(Count,Size);
   SetLength(FValues,Count,Size);
 end;
 
