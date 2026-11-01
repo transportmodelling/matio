@@ -33,13 +33,18 @@ Type
       end;
     Const
       Max13Bit = 8191;
+      BufferLength = 65536;
     Var
       EOF: Boolean;
       Next: TMatrixRecordHeader;
       ScalingFactor: Real;
+      Buffer: TBytes;
+      BufferPos,BufferEnd: Integer;
     Function ReadFileLabel(const Reader: TBinaryReader): String;
     Procedure ReadFileHeader;
-    Procedure ReadBytes(var Buffer; const Count: Integer); inline;
+    Procedure RefillBuffer(const Count: Integer);
+    Function ReadValue(const ValueSize: Byte): LongInt; inline;
+    Procedure ReadNextHeader;
     Procedure ZeroizeColumns(const Rows: TCustomMatrixRows; const Matrix,FirstColumn: Integer);
     Procedure ReadRecordHeader(const CurrentRow,LastMatrix: Integer);
     Procedure ReadValueSequence(var Cell: TMatrixCell; const ValueSize: Byte; const NValues: Integer);
@@ -83,13 +88,8 @@ begin
   ScalingFactor := 1;
   for var Cnt := 1 to Precision do ScalingFactor := ScalingFactor/10;
   ReadFileHeader;
-  // Read first header record
-  EOF := (FileStream.read(Next.Row,2) = 0);
-  if not EOF then
-  begin
-    FileStream.read(Next.Matrix,1);
-    FileStream.read(Next.LastColumn,2);
-  end;
+  SetLength(Buffer,BufferLength);
+  ReadNextHeader;
 end;
 
 Function TMinutpMatrixReader.ReadFileLabel(const Reader: TBinaryReader): String;
@@ -114,9 +114,38 @@ begin
   end;
 end;
 
-Procedure TMinutpMatrixReader.ReadBytes(var Buffer; const Count: Integer);
+Procedure TMinutpMatrixReader.RefillBuffer(const Count: Integer);
+// Moves the unread bytes to the start of the buffer and reads on behind them
 begin
-  if FileStream.Read(Buffer,Count) <> Count then raise Exception.Create('Error reading Minutp-file');
+  var Unread := BufferEnd-BufferPos;
+  if Unread > 0 then Move(Buffer[BufferPos],Buffer[0],Unread);
+  BufferPos := 0;
+  BufferEnd := Unread+FileStream.Read(Buffer[Unread],BufferLength-Unread);
+  if BufferEnd < Count then raise Exception.Create('Error reading Minutp-file');
+end;
+
+Function TMinutpMatrixReader.ReadValue(const ValueSize: Byte): LongInt;
+// Reads a little endian value. A sparse matrix holds many short value groups, so
+// the bytes are assembled here instead of copied with a call per value.
+begin
+  if BufferPos+ValueSize > BufferEnd then RefillBuffer(ValueSize);
+  Result := 0;
+  for var Index := 0 to ValueSize-1 do
+  Result := Result or (LongInt(Buffer[BufferPos+Index]) shl (8*Index));
+  Inc(BufferPos,ValueSize);
+end;
+
+Procedure TMinutpMatrixReader.ReadNextHeader;
+// Reads the header of the next data record, or sets EOF past the last record
+begin
+  if BufferPos = BufferEnd then RefillBuffer(0);
+  EOF := (BufferPos = BufferEnd);
+  if not EOF then
+  begin
+    Next.Row := ReadValue(2);
+    Next.Matrix := ReadValue(1);
+    Next.LastColumn := ReadValue(2);
+  end;
 end;
 
 Procedure TMinutpMatrixReader.ZeroizeColumns(const Rows: TCustomMatrixRows;
@@ -128,48 +157,29 @@ end;
 Procedure TMinutpMatrixReader.ReadRecordHeader(const CurrentRow,LastMatrix: Integer);
 // Reads the header of the next data record and checks the row and matrix order
 begin
-  EOF := (FileStream.read(Next.Row,2) = 0);
-  if not EOF then
-  begin
-    ReadBytes(Next.Matrix,1);
-    ReadBytes(Next.LastColumn,2);
-    if (Next.Row <= CurrentRow)
-    or ((Next.Row = CurrentRow+1) and (Next.Matrix-1 <= LastMatrix)) then
-      raise Exception.Create('Error while reading mtp-file!');
-  end;
+  ReadNextHeader;
+  if (not EOF) and ((Next.Row <= CurrentRow)
+  or ((Next.Row = CurrentRow+1) and (Next.Matrix-1 <= LastMatrix))) then
+    raise Exception.Create('Error while reading mtp-file!');
 end;
 
 Procedure TMinutpMatrixReader.ReadValueSequence(var Cell: TMatrixCell; const ValueSize: Byte; const NValues: Integer);
 // Reads Nvalues vars with size 1..4
-Var
-  NextValue: LongInt;
 begin
-  for var Cnt := 1 to NValues do
-  begin
-    NextValue := 0;
-    ReadBytes(NextValue,ValueSize);
-    Cell.SetValue(ScalingFactor*NextValue);
-  end;
+  for var Cnt := 1 to NValues do Cell.SetValue(ScalingFactor*ReadValue(ValueSize));
 end;
 
 Procedure TMinutpMatrixReader.ReadReplicatedValue(var Cell: TMatrixCell; const NValues: Integer);
 // Reads Next byte=size, reads a var with this Size and fills with Nvalues vars
-Var
-  ValueSize: Byte;
-  RepliData: LongInt;
 begin
-  ReadBytes(ValueSize,1);
-  RepliData := 0;
-  ReadBytes(RepliData,ValueSize);
-  Cell.Fill(ScalingFactor*RepliData,NValues);
+  var ValueSize: Byte := ReadValue(1);
+  Cell.Fill(ScalingFactor*ReadValue(ValueSize),NValues);
 end;
 
 Procedure TMinutpMatrixReader.ReadValueGroup(var Cell: TMatrixCell);
 // Reads a key and the values it announces
-Var
-  Key: Word;
 begin
-  ReadBytes(Key,2);
+  var Key := ReadValue(2);
   var ValueSize: Byte := Key shr 13;  // bit 1-3
   var NValues: Integer := Key and Max13Bit;  // bit 4-16
   case ValueSize of

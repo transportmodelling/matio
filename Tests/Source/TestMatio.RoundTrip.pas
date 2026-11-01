@@ -80,6 +80,8 @@ type
     [Test] procedure Mtp_MatrixCountPreserved;
     [Test] procedure Mtp_SizePreserved;
     [Test] procedure Mtp_FileLabelPreserved;
+    [Test] Procedure Mtp_ValueSizesPreserved;
+    [Test] Procedure Mtp_TruncatedFile_Raises;
   end;
 
   // ---------------------------------------------------------------------------
@@ -836,6 +838,67 @@ begin
       Props.Append('prec', '0');
       ReadBack.Read(Props);
       Assert.AreEqual('TestFile', ReadBack.FileLabel);
+    finally
+      ReadBack.Free;
+    end;
+  finally
+    Written.Free;
+  end;
+end;
+
+Procedure TMinutpRoundTripTests.Mtp_ValueSizesPreserved;
+// A row of zero, the values of one to four bytes with a negative value in four,
+// and a row of one replicated value
+begin
+  var TempFile := MakeTempFile;
+  var Cells: TArray<Float64> := [0.0, 200.0, 40000.0, 5000000.0, -7.0];
+  var Written := BuildTestMatrices;
+  try
+    for var Row := 0 to NZones - 1 do
+    for var Column := 0 to NZones - 1 do
+    begin
+      Written[0, Row, Column] := Cells[Column];
+      Written[1, Row, Column] := 40000.0;
+    end;
+    var Props: TKeyValuePairs := MakeWriteProps(TempFile, 'mtp');
+    Props.Append('prec', '0');
+    Written.Save(Props);
+    var ReadBack := TFloat64Matrices.Create(NMatrices, NZones);
+    try
+      Props := MakeReadProps(TempFile, 'mtp');
+      Props.Append('prec', '0');
+      ReadBack.Read(Props);
+      var Mismatch := CompareRoundTrip(Written, ReadBack, TolExact);
+      Assert.IsEmpty(Mismatch, 'mtp round-trip: ' + Mismatch);
+    finally
+      ReadBack.Free;
+    end;
+  finally
+    Written.Free;
+  end;
+end;
+
+Procedure TMinutpRoundTripTests.Mtp_TruncatedFile_Raises;
+begin
+  var TempFile := MakeTempFile;
+  var Written := BuildTestMatrices;
+  try
+    var Props: TKeyValuePairs := MakeWriteProps(TempFile, 'mtp');
+    Props.Append('prec', '0');
+    Written.Save(Props);
+    var Bytes := TFile.ReadAllBytes(TempFile);
+    TFile.WriteAllBytes(TempFile, Copy(Bytes, 0, Length(Bytes) - 3));
+    var ReadBack := TFloat64Matrices.Create(NMatrices, NZones);
+    try
+      Props := MakeReadProps(TempFile, 'mtp');
+      Props.Append('prec', '0');
+      var ErrorMessage := '';
+      try
+        ReadBack.Read(Props);
+      except
+        on E: Exception do ErrorMessage := E.Message;
+      end;
+      Assert.Contains(ErrorMessage, 'Error reading Minutp-file');
     finally
       ReadBack.Free;
     end;

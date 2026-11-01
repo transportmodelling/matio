@@ -29,13 +29,18 @@ Type
     Const
       Max13Bit = 8191;
       RepliKey = 7 shl 13;
+      RecordHeaderSize = 5;
+      MaxCellSize = 6; // A range of one cell: a key of two bytes and a value of four
     Var
       ScalingFactor: Real;
       IntValues: array of Integer;
+      RecordBuffer: TBytes;
+      RecordSize: Integer;
     Procedure WriteFileLabel(const Writer: TBinaryWriter; const FileLabel: String);
     Procedure WriteFileHeader(const FileLabel: String);
     Function GetValueSize(Item: Int32): Byte;
     Procedure WriteToFile(Value,NBytes: Integer);
+    Procedure AddToRecord(const Value,NBytes: Integer); inline;
     Function FitsRange(const Range: TCellRange): Boolean; inline;
     Function KeepsReplication(const Range: TCellRange): Boolean; inline;
     Procedure ExtendRange(var Range: TCellRange); inline;
@@ -72,8 +77,9 @@ begin
   ScalingFactor := 1;
   for var Cnt := 1 to Precision do ScalingFactor := ScalingFactor*10;
   WriteFileHeader(FileLabel);
-  // Allocate IntValues
+  // Allocate IntValues and the buffer of a record
   SetLength(IntValues,Size);
+  SetLength(RecordBuffer,RecordHeaderSize+MaxCellSize*Size);
 end;
 
 Procedure TMinutpMatrixWriter.WriteFileLabel(const Writer: TBinaryWriter; const FileLabel: String);
@@ -118,6 +124,14 @@ begin
   FileStream.Write(Value,NBytes)
 end;
 
+Procedure TMinutpMatrixWriter.AddToRecord(const Value,NBytes: Integer);
+// Adds a little endian value. A sparse matrix holds many short ranges, so the
+// bytes are split here instead of copied with a call per value.
+begin
+  for var Index := 0 to NBytes-1 do RecordBuffer[RecordSize+Index] := Byte(Value shr (8*Index));
+  Inc(RecordSize,NBytes);
+end;
+
 Function TMinutpMatrixWriter.FitsRange(const Range: TCellRange): Boolean;
 // The next cell has the same value size and the range stays a valid range
 begin
@@ -157,12 +171,12 @@ end;
 Procedure TMinutpMatrixWriter.WriteReplicatedValue(const Range: TCellRange);
 begin
   if IntValues[Range.First] = 0 then
-    WriteToFile(Range.CellCount,2)
+    AddToRecord(Range.CellCount,2)
   else
   begin
-    WriteToFile(RepliKey+Range.CellCount,2);
-    WriteToFile(Range.ValueSize,1);
-    WriteToFile(IntValues[Range.First],Range.ValueSize);
+    AddToRecord(RepliKey+Range.CellCount,2);
+    AddToRecord(Range.ValueSize,1);
+    AddToRecord(IntValues[Range.First],Range.ValueSize);
   end;
 end;
 
@@ -172,18 +186,19 @@ begin
     WriteReplicatedValue(Range)
   else
   begin
-    WriteToFile((Range.ValueSize shl 13)+Range.CellCount,2);
-    for var Column := Range.First to Range.Last do WriteToFile(IntValues[Column],Range.ValueSize);
+    AddToRecord((Range.ValueSize shl 13)+Range.CellCount,2);
+    for var Column := Range.First to Range.Last do AddToRecord(IntValues[Column],Range.ValueSize);
   end;
 end;
 
 Procedure TMinutpMatrixWriter.WriteMatrixRecord(const CurrentMatrix,CurrentRow: Integer);
 begin
-  // Write matrix record header
-  WriteToFile(CurrentRow+1,2);
-  WriteToFile(CurrentMatrix+1,1);
-  WriteToFile(Size,2);
-  // Write cells
+  // Add matrix record header
+  RecordSize := 0;
+  AddToRecord(CurrentRow+1,2);
+  AddToRecord(CurrentMatrix+1,1);
+  AddToRecord(Size,2);
+  // Add cells
   var Last := -1;
   while Last < Size-1 do
   begin
@@ -191,6 +206,7 @@ begin
     WriteRange(Range);
     Last := Range.Last;
   end;
+  FileStream.Write(RecordBuffer[0],RecordSize);
 end;
 
 Function TMinutpMatrixWriter.ScaledIntValue(const Value: Float64): Int32;
