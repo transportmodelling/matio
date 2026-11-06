@@ -26,6 +26,7 @@ Type
                        const ReaderClass: THdf5MatrixReaderClass); overload;
   public
     Function Available: Boolean; override;
+    Function Unavailability: String; override;
     Function HasFormat(const FileExtension: String): Boolean; override;
     Function CreateReader(const [ref] Config: TKeyValuePairs): TMatrixReader; override;
     Function CreateReader(const [ref] Config: TKeyValuePairs; const Selection: array of String): TMatrixReader; override;
@@ -44,6 +45,7 @@ Type
     Function NewWriter(const [ref] Config: TKeyValuePairs; const NewFile: TNewMatrixFile): TMatrixWriter; override;
   public
     Function Available: Boolean; override;
+    Function Unavailability: String; override;
   end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -61,6 +63,11 @@ end;
 Function THdf5MatrixReaderFormat.Available: Boolean;
 begin
   Result := THdf5MatrixReader.Available;
+end;
+
+Function THdf5MatrixReaderFormat.Unavailability: String;
+begin
+  Result := Hdf5Unavailability;
 end;
 
 Function THdf5MatrixReaderFormat.HasFormat(const FileExtension: String): Boolean;
@@ -110,6 +117,11 @@ end;
 Function THdf5MatrixWriterFormat.Available: Boolean;
 begin
   Result := THdf5MatrixWriter.Available;
+end;
+
+Function THdf5MatrixWriterFormat.Unavailability: String;
+begin
+  Result := Hdf5Unavailability;
 end;
 
 end.

@@ -60,7 +60,7 @@ Type
   // Creates and owns its own reader.
   // Suitable for applications that process all rows on the same thread.
   private
-    Procedure SetOpenedReader(const MatrixReader: TMatrixReader; const Count,Size: Integer);
+    Function OpenedReader(const MatrixReader: TMatrixReader; const [ref] Config: TKeyValuePairs): TMatrixReader;
   public
     Constructor Create(const [ref] Config: TKeyValuePairs;
                        const Count,Size: Integer); overload;
@@ -149,7 +149,7 @@ Constructor TMatrixRowsReader.Create(const [ref] Config: TKeyValuePairs;
                                      const Count,Size: Integer);
 begin
   inherited Create;
-  SetOpenedReader(MatrixFormats.CreateReader(Config),Count,Size);
+  SetReader(OpenedReader(MatrixFormats.CreateReader(Config),Config),Count,Size);
 end;
 
 Constructor TMatrixRowsReader.Create(const [ref] Config: TKeyValuePairs;
@@ -157,7 +157,7 @@ Constructor TMatrixRowsReader.Create(const [ref] Config: TKeyValuePairs;
                                      const Size: Integer);
 begin
   inherited Create;
-  SetOpenedReader(MatrixFormats.CreateReader(Config,Selection),Length(Selection),Size);
+  SetReader(OpenedReader(MatrixFormats.CreateReader(Config,Selection),Config),Length(Selection),Size);
 end;
 
 Constructor TMatrixRowsReader.Create(const [ref] Config: TKeyValuePairs;
@@ -165,15 +165,16 @@ Constructor TMatrixRowsReader.Create(const [ref] Config: TKeyValuePairs;
                                      const Size: Integer);
 begin
   inherited Create;
-  SetOpenedReader(MatrixFormats.CreateReader(Config,Selection),Length(Selection),Size);
+  SetReader(OpenedReader(MatrixFormats.CreateReader(Config,Selection),Config),Length(Selection),Size);
 end;
 
-Procedure TMatrixRowsReader.SetOpenedReader(const MatrixReader: TMatrixReader; const Count,Size: Integer);
+Function TMatrixRowsReader.OpenedReader(const MatrixReader: TMatrixReader; const [ref] Config: TKeyValuePairs): TMatrixReader;
+// MatrixFormats creates no reader when the format of Config is unknown or unavailable
 begin
   if MatrixReader <> nil then
-    SetReader(MatrixReader,Count,Size)
+    Result := MatrixReader
   else
-    raise Exception.Create('Error opening matrix file');
+    raise Exception.Create(MatrixFormats.ReaderUnavailability(Config));
 end;
 
 Destructor TMatrixRowsReader.Destroy;
@@ -194,7 +195,7 @@ begin
   if Writer <> nil then
     Allocate(Length(MatrixLabels),Size)
   else
-    raise Exception.Create('Error opening matrix file');
+    raise Exception.Create(MatrixFormats.WriterUnavailability(Config));
 end;
 
 Procedure TMatrixRowsWriter.Write;

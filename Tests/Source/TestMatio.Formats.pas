@@ -92,6 +92,11 @@ type
     // CreateReader returns nil for unknown format (no exception)
     [Test]
     procedure CreateReader_UnknownFormat_ReturnsNil;
+    // Why no reader or writer is created
+    [Test]
+    Procedure ReaderUnavailability_UnknownFormat_NamesFormat;
+    [Test]
+    Procedure WriterUnavailability_ReadOnlyFormat_NamesFormat;
   end;
 
   // ---------------------------------------------------------------------------
@@ -116,6 +121,9 @@ type
     // Skipped (Assert.Pass) when the file is not found
     [Test]
     procedure OMX_Available_WhenDllLoaded;
+    // hdf5.dll absent: the unavailability names the dll
+    [Test]
+    Procedure OMX_Unavailability_WhenDllNotLoaded_NamesDll;
   end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -452,6 +460,25 @@ begin
   Assert.IsNull(Reader, 'CreateReader should return nil for unknown format ''xyz''');
 end;
 
+Procedure TMatrixFormatsTests.ReaderUnavailability_UnknownFormat_NamesFormat;
+Var
+  Config: TKeyValuePairs;
+begin
+  Config.Append('file', 'dummy.xyz');
+  Config.Append('format', 'xyz');
+  Assert.AreEqual('No matrix reader for format xyz', MatrixFormats.ReaderUnavailability(Config));
+end;
+
+Procedure TMatrixFormatsTests.WriterUnavailability_ReadOnlyFormat_NamesFormat;
+// Visum matrices can be read, not written
+Var
+  Config: TKeyValuePairs;
+begin
+  Config.Append('file', 'dummy.mtx');
+  Config.Append('format', 'visum');
+  Assert.AreEqual('No matrix writer for format visum', MatrixFormats.WriterUnavailability(Config));
+end;
+
 ////////////////////////////////////////////////////////////////////////////////
 // TOMXAvailabilityTests
 ////////////////////////////////////////////////////////////////////////////////
@@ -509,6 +536,23 @@ begin
   Hdf5Dll := THdf5Dll.Create(FDllPath);
   Assert.IsTrue(MatrixFormats.ReaderFormat('omx').Available,
     'OMX format should report available after loading hdf5.dll from Tests\Data\');
+end;
+
+Procedure TOMXAvailabilityTests.OMX_Unavailability_WhenDllNotLoaded_NamesDll;
+Var
+  Config: TKeyValuePairs;
+begin
+  Config.Append('file', 'dummy.omx');
+  Config.Append('format', 'omx');
+  var Expected := 'Matrix format omx is not available: hdf5.dll not found (' + Hdf5DllPath + ')';
+  var SavedDll := Hdf5Dll;
+  Hdf5Dll := nil;
+  try
+    Assert.AreEqual(Expected, MatrixFormats.ReaderUnavailability(Config), 'Reader');
+    Assert.AreEqual(Expected, MatrixFormats.WriterUnavailability(Config), 'Writer');
+  finally
+    Hdf5Dll := SavedDll;
+  end;
 end;
 
 end.

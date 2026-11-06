@@ -172,8 +172,28 @@ Type
 Var
   Hdf5Dll: THdf5Dll = nil;
 
+// The path the hdf5-dll is loaded from, next to the executable
+Function Hdf5DllPath: String;
+// Why the hdf5-dll is not loaded; empty when it is loaded
+Function Hdf5Unavailability: String;
+
 ////////////////////////////////////////////////////////////////////////////////
 implementation
+////////////////////////////////////////////////////////////////////////////////
+
+Function Hdf5DllPath: String;
+begin
+  Result := ExtractFileDir(ParamStr(0)) + '\hdf5.dll';
+end;
+
+Function Hdf5Unavailability: String;
+begin
+  if Hdf5Dll <> nil then
+    Result := ''
+  else
+    Result := 'hdf5.dll not found (' + Hdf5DllPath + ')';
+end;
+
 ////////////////////////////////////////////////////////////////////////////////
 
 Constructor THdf5Dll.Create(const DllPath: string);
@@ -679,8 +699,7 @@ begin
 end;
 
 Initialization
-  var DllPath := ExtractFileDir(Paramstr(0)) + '\hdf5.dll';
-  if FileExists(DllPath) then Hdf5Dll := THdf5Dll.Create(DllPath);
+  if FileExists(Hdf5DllPath) then Hdf5Dll := THdf5Dll.Create(Hdf5DllPath);
 Finalization
   Hdf5Dll.Free;
 end.

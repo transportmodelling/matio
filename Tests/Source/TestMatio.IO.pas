@@ -51,6 +51,7 @@ type
     [Test] procedure RowsReader_SelectByIndex_CountIs1;
     [Test] procedure RowsReader_SelectByLabel_LabelCorrect;
     [Test] procedure RowsReader_PastEnd_Zeroes;
+    [Test] Procedure RowsReader_UnknownFormat_RaisesUnavailability;
   end;
 
   // ---------------------------------------------------------------------------
@@ -126,6 +127,7 @@ type
     [TearDown]
     procedure TearDown;
     [Test] procedure RowsWriter_Float64_ValuesPreserved;
+    [Test] Procedure RowsWriter_UnknownFormat_RaisesUnavailability;
   end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -327,6 +329,16 @@ begin
   finally
     RowsReader.Free;
   end;
+end;
+
+Procedure TMatrixRowsReaderTests.RowsReader_UnknownFormat_RaisesUnavailability;
+begin
+  Assert.WillRaiseWithMessage(
+    Procedure
+    begin
+      TMatrixRowsReader.Create(MakeProps(FTempFile, 'xyz'), NMatrices, NZones).Free;
+    end,
+    Exception, 'No matrix reader for format xyz');
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -746,6 +758,16 @@ begin
   finally
     Written.Free;
   end;
+end;
+
+Procedure TMatrixRowsWriterTests.RowsWriter_UnknownFormat_RaisesUnavailability;
+begin
+  Assert.WillRaiseWithMessage(
+    Procedure
+    begin
+      TMatrixRowsWriter.Create(MakeProps(MakeTempFile, 'xyz'), '', ['A'], NZones).Free;
+    end,
+    Exception, 'No matrix writer for format xyz');
 end;
 
 end.

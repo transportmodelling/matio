@@ -46,6 +46,8 @@ Type
     Function Format: String; virtual;
     Function FormatName: String; virtual;
     Function Available: Boolean; virtual;
+    // Why the format is not available; empty when it is available
+    Function Unavailability: String; virtual;
     Function FormatProperties: TKeyValuePairs;
     Function PropertyLabel(const PropertyKey: string): String; virtual;
     Function PropertyPickList(const PropertyKey: string; out PickList: TStringDynArray): Boolean; virtual;
@@ -106,6 +108,7 @@ Type
     Function AvailableReaderFormat(const [ref] Config: TKeyValuePairs): TMatrixReaderFormat;
     Function AvailableWriterFormat(const [ref] Config: TKeyValuePairs): TMatrixWriterFormat;
     Function FileHeader(const FileName: TFileName): TBytes;
+    Function UnavailableFormatMessage(const Format: TMatrixFormat): String;
   public
     Class Operator Finalize (var Formats: TMatrixFormats);
   public
@@ -127,6 +130,8 @@ Type
     Function CreateReader(const [ref] Config: TKeyValuePairs;
                           const Selection: array of String): TMatrixReader; overload;
     Function CreateEnumReader(const [ref] Config: TKeyValuePairs; Count,Size: Integer; Ordered: Boolean = true): TMatrixEnumReader;
+    // Why CreateReader returns nil for a configuration
+    Function ReaderUnavailability(const [ref] Config: TKeyValuePairs): String;
     // Create matrix writer
     Function CreateWriter(const [ref] Config: TKeyValuePairs;
                           const FileLabel: string;
@@ -144,6 +149,8 @@ Type
                               const MatrixLabels: array of String;
                               const Size: Integer;
                               FixedRows: Boolean = false): TMatrixEnumWriter; overload;
+    // Why CreateWriter returns nil for a configuration
+    Function WriterUnavailability(const [ref] Config: TKeyValuePairs): String;
   end;
 
 Var
@@ -251,6 +258,11 @@ end;
 Function TMatrixFormat.Available: Boolean;
 begin
   Result := true;
+end;
+
+Function TMatrixFormat.Unavailability: String;
+begin
+  Result := '';
 end;
 
 Function TMatrixFormat.FormatProperties: TKeyValuePairs;
@@ -427,6 +439,11 @@ begin
   end;
 end;
 
+Function TMatrixFormats.UnavailableFormatMessage(const Format: TMatrixFormat): String;
+begin
+  Result := 'Matrix format ' + Format.Format + ' is not available: ' + Format.Unavailability;
+end;
+
 Procedure TMatrixFormats.RegisterFormat(const Format: TMatrixReaderFormat);
 begin
   var Count := Length(ReaderFormats);
@@ -519,7 +536,17 @@ begin
   if Reader <> nil then
     Result := TMatrixEnumReader.Create(Reader,Count,Size,true)
   else
-    raise Exception.Create('Error creating matrix reader');
+    raise Exception.Create(ReaderUnavailability(Config));
+end;
+
+Function TMatrixFormats.ReaderUnavailability(const [ref] Config: TKeyValuePairs): String;
+begin
+  var FormatName := Config.Str(TMatrixFormat.FormatProperty);
+  var Format := NamedReaderFormat(FormatName);
+  if Format <> nil then
+    Result := UnavailableFormatMessage(Format)
+  else
+    Result := 'No matrix reader for format ' + FormatName;
 end;
 
 Function TMatrixFormats.CreateWriter(const [ref] Config: TKeyValuePairs;
@@ -556,7 +583,17 @@ begin
   if Writer <> nil then
     Result := TMatrixEnumWriter.Create(Writer,FixedRows,true)
   else
-    raise Exception.Create('Error creating matrix writer');
+    raise Exception.Create(WriterUnavailability(Config));
+end;
+
+Function TMatrixFormats.WriterUnavailability(const [ref] Config: TKeyValuePairs): String;
+begin
+  var FormatName := Config.Str(TMatrixFormat.FormatProperty);
+  var Format := NamedWriterFormat(FormatName);
+  if Format <> nil then
+    Result := UnavailableFormatMessage(Format)
+  else
+    Result := 'No matrix writer for format ' + FormatName;
 end;
 
 Initialization
