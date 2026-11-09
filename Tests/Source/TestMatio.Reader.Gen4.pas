@@ -21,6 +21,7 @@ type
   strict private
     FTxt: TFloat64Matrices;
     F4G: TFloat64Matrices;
+    Procedure CopyWithDamagedChecksum(const Source,Target: String);
   public
     [Setup]
     procedure Setup;
@@ -31,6 +32,7 @@ type
     [Test] procedure Gen4MatchesTxt_AllCells;
     [Test] procedure Gen4_SelectByIndex_FirstMatrix_CountIs1;
     [Test] procedure Gen4_SelectByIndex_FirstMatrix_LabelIsIVT;
+    [Test] Procedure Gen4_DamagedChecksum_ReportsDamagedData;
   end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -38,10 +40,20 @@ implementation
 ////////////////////////////////////////////////////////////////////////////////
 
 uses
-  SysUtils, KeyVal, matio.reader, matio.formats;
+  SysUtils, IOUtils, KeyVal, matio.reader, matio.formats;
 
 const
   Tol4G = 0.1;
+
+Procedure T4GReaderTests.CopyWithDamagedChecksum(const Source,Target: String);
+// A GZip stream ends with the CRC32 over the uncompressed data and their length.
+// Flipping a bit of the CRC32 leaves a stream that decodes in full and fails its check.
+begin
+  var Bytes := TFile.ReadAllBytes(Source);
+  var Checksum := Length(Bytes)-8;
+  Bytes[Checksum] := Bytes[Checksum] xor 1;
+  TFile.WriteAllBytes(Target,Bytes);
+end;
 
 procedure T4GReaderTests.Setup;
 begin
@@ -98,6 +110,24 @@ begin
     Assert.AreEqual('IVT', Reader.MatrixLabels[0]);
   finally
     Reader.Free;
+  end;
+end;
+
+Procedure T4GReaderTests.Gen4_DamagedChecksum_ReportsDamagedData;
+begin
+  var FileName := TPath.Combine(TPath.GetTempPath,'matio_test_damaged.4g');
+  CopyWithDamagedChecksum(DataDir + 'example.4g',FileName);
+  var Matrices := TFloat64Matrices.Create(2,485);
+  try
+    Assert.WillRaiseWithMessage(
+      Procedure
+      begin
+        Matrices.Read(MakeProps(FileName,'4g'));
+      end,
+      Exception,'Error (damaged compressed data) reading row 485 in ' + FileName);
+  finally
+    Matrices.Free;
+    TFile.Delete(FileName);
   end;
 end;
 

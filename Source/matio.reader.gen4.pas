@@ -33,6 +33,7 @@ Type
     Procedure ReadFloat64Rows(const Rows: TCustomMatrixRows);
     Procedure ReadRows(const Rows: TCustomMatrixRows);
     Procedure VerifyEndOfData;
+    Procedure ReadDataRow(const CurrentRow: Integer; const Rows: TCustomMatrixRows);
     Procedure ClearRows(const Rows: TCustomMatrixRows);
   protected
     Procedure Read(const CurrentRow: Integer; const Rows: TCustomMatrixRows); override;
@@ -158,6 +159,22 @@ begin
   raise Exception.Create('data beyond the last row');
 end;
 
+Procedure T4GMatrixReader.ReadDataRow(const CurrentRow: Integer; const Rows: TCustomMatrixRows);
+// The decompressor raises a bare data error on stored bytes that do not decode, or
+// that disagree with the checksum over the data. Such a file is reported as damaged.
+begin
+  try
+    ReadRows(Rows);
+    if CurrentRow = Size-1 then VerifyEndOfData;
+  except
+    on E: EZDecompressionError do
+    if E.Message = String(_z_errmsg[2-Z_DATA_ERROR]) then
+      raise Exception.Create('damaged compressed data')
+    else
+      raise;
+  end;
+end;
+
 Procedure T4GMatrixReader.ClearRows(const Rows: TCustomMatrixRows);
 begin
   for var Mtrx := 0 to Count-1 do
@@ -167,11 +184,7 @@ end;
 
 Procedure T4GMatrixReader.Read(const CurrentRow: Integer; const Rows: TCustomMatrixRows);
 begin
-  if CurrentRow < Size then
-  begin
-    ReadRows(Rows);
-    if CurrentRow = Size-1 then VerifyEndOfData;
-  end else ClearRows(Rows);
+  if CurrentRow < Size then ReadDataRow(CurrentRow,Rows) else ClearRows(Rows);
 end;
 
 Destructor T4GMatrixReader.Destroy;
